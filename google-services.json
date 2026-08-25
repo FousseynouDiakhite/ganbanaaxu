@@ -1,0 +1,68 @@
+{
+  "project_info": {
+    "project_number": "292088015557",
+    "project_id": "ganbanaaxu",
+    "storage_bucket": "ganbanaaxu.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:292088015557:android:12e8e897f1739c61401eac",
+        "android_client_info": {
+          "package_name": "com.godapps.Ganbanaaxu"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "292088015557-cg2cdoo83tk97cgbtprmnqisjnd4jeeb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD8mKf9CXixQpIzlSlIFXCv9VDAj35L3iQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "292088015557-cg2cdoo83tk97cgbtprmnqisjnd4jeeb.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:292088015557:android:256d3f80eeb137e2401eac",
+        "android_client_info": {
+          "package_name": "com.godapps.KuReer"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "292088015557-cg2cdoo83tk97cgbtprmnqisjnd4jeeb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD8mKf9CXixQpIzlSlIFXCv9VDAj35L3iQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "292088015557-cg2cdoo83tk97cgbtprmnqisjnd4jeeb.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

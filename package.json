@@ -1,0 +1,90 @@
+{
+  "name": "ganbanaaxu",
+  "version": "1.0.0",
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "^15.0.2",
+    "@js-temporal/polyfill": "^0.5.1",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/slider": "5.2.0",
+    "@react-native-masked-view/masked-view": "0.3.2",
+    "@react-navigation/bottom-tabs": "^7.2.0",
+    "@react-navigation/native": "^7.0.14",
+    "@react-navigation/native-stack": "^7.2.0",
+    "@react-navigation/stack": "^6.4.1",
+    "@supabase/supabase-js": "^2.107.0",
+    "@types/react": "~19.2.4",
+    "axios": "^1.7.9",
+    "base-64": "^1.0.0",
+    "base64-arraybuffer": "^1.0.2",
+    "buffer": "^6.0.3",
+    "core-js": "^3.49.0",
+    "date-fns": "^4.1.0",
+    "expo": "^57.0.15",
+    "expo-asset": "~57.0.13",
+    "expo-audio": "~57.0.4",
+    "expo-auth-session": "~57.0.8",
+    "expo-blur": "~57.0.2",
+    "expo-constants": "~57.0.13",
+    "expo-crypto": "~57.0.1",
+    "expo-dev-client": "~57.0.14",
+    "expo-device": "~57.0.1",
+    "expo-document-picker": "~57.0.1",
+    "expo-file-system": "~57.0.5",
+    "expo-font": "~57.0.1",
+    "expo-haptics": "~57.0.1",
+    "expo-image": "~57.0.3",
+    "expo-image-picker": "~57.0.12",
+    "expo-linking": "~57.0.7",
+    "expo-media-library": "~57.0.4",
+    "expo-notifications": "~57.0.13",
+    "expo-router": "~57.0.15",
+    "expo-secure-store": "~57.0.1",
+    "expo-sharing": "~57.0.14",
+    "expo-splash-screen": "~57.0.7",
+    "expo-status-bar": "~57.0.1",
+    "expo-symbols": "~57.0.2",
+    "expo-system-ui": "~57.0.2",
+    "expo-video": "~57.0.2",
+    "expo-web-browser": "~57.0.2",
+    "proxy-polyfill": "^0.3.2",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.2",
+    "react-native-compressor": "^2.0.3",
+    "react-native-gesture-handler": "~2.32.0",
+    "react-native-get-random-values": "~1.11.0",
+    "react-native-nitro-modules": "^0.37.0",
+    "react-native-purchases": "^10.4.2",
+    "react-native-purchases-ui": "^10.4.2",
+    "react-native-reanimated": "4.5.1",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0",
+    "react-native-skeleton-placeholder": "^5.2.4",
+    "react-native-url-polyfill": "^4.0.0",
+    "react-native-vector-icons": "^10.3.0",
+    "react-native-worklets": "0.10.1",
+    "typescript": "~6.0.3"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@types/base64-arraybuffer": "^0.1.0"
+  },
+  "private": true,
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "listUnknownPackages": false,
+        "exclude": [
+          "expo-av"
+        ]
+      }
+    }
+  }
+}
