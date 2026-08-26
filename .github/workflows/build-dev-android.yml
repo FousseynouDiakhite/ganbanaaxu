@@ -1,0 +1,52 @@
+name: Build Android Development (APK)
+
+on:
+  workflow_dispatch: # Ce déclencheur permet de lancer le build manuellement avec un bouton !
+
+jobs:
+  build-dev:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Libérer de l'espace sur le serveur
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: false
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: false
+
+      - name: Configurer Node.js et le Cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Configurer Java 17 et le Cache Gradle
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Installer les dépendances
+        run: npm install
+
+      - name: Générer le dossier Android (Prebuild)
+        run: npx expo prebuild --platform android --clean
+
+      - name: Compiler l'APK de développement
+        run: |
+          cd android
+          ./gradlew assembleDebug
+
+      - name: Sauvegarder le fichier .apk
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ganbanaaxu-Dev-APK
+          path: android/app/build/outputs/apk/debug/*.apk
