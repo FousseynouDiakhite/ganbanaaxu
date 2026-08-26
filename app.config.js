@@ -100,7 +100,7 @@ export default {
   expo: {
     name: "Ganbanaaxu",
     slug: "Ganbanaaxu",
-    version: "1.0.3",
+    version: "1.0.4",
     orientation: "portrait",
     icon: "./assets/images/logoLiberty.png",
     scheme: "ganbanaaxu",
@@ -112,7 +112,7 @@ export default {
     android: {
       package: "com.godapps.Ganbanaaxu",
       googleServicesFile: "./google-services.json",
-      versionCode: 53, // N'oubliez pas de mettre 49 si Google Play refuse la version 48
+      versionCode: 54, // N'oubliez pas de mettre 49 si Google Play refuse la version 48
       /*targetSdkVersion: 36,
       compileSdkVersion: 36,*/
       usesCleartextTraffic: true,
