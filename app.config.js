@@ -100,7 +100,7 @@ export default {
   expo: {
     name: "Ganbanaaxu",
     slug: "Ganbanaaxu",
-    version: "1.0.1",
+    version: "1.0.2",
     orientation: "portrait",
     icon: "./assets/images/logoLiberty.png",
     scheme: "ganbanaaxu",
