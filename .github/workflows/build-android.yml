@@ -29,10 +29,20 @@ jobs:
       - name: Générer le dossier Android (Prebuild)
         run: npx expo prebuild --platform android --clean
 
-      - name: Compiler le Bundle Android (.aab)
+      - name: Décoder le Keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo $KEYSTORE_BASE64 | base64 --decode > android/app/release.keystore
+
+      - name: Compiler et signer le Bundle Android (.aab)
         run: |
           cd android
-          ./gradlew bundleRelease
+          ./gradlew bundleRelease \
+            -Pandroid.injected.signing.store.file=$(pwd)/app/release.keystore \
+            -Pandroid.injected.signing.store.password=${{ secrets.ANDROID_KEYSTORE_PASSWORD }} \
+            -Pandroid.injected.signing.key.alias=${{ secrets.ANDROID_KEY_ALIAS }} \
+            -Pandroid.injected.signing.key.password=${{ secrets.ANDROID_KEY_PASSWORD }}
 
       - name: Sauvegarder le fichier .aab
         uses: actions/upload-artifact@v4
