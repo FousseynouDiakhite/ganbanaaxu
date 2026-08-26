@@ -112,7 +112,7 @@ export default {
     android: {
       package: "com.godapps.Ganbanaaxu",
       googleServicesFile: "./google-services.json",
-      versionCode: 48, // N'oubliez pas de mettre 49 si Google Play refuse la version 48
+      versionCode: 49, // N'oubliez pas de mettre 49 si Google Play refuse la version 48
       /*targetSdkVersion: 36,
       compileSdkVersion: 36,*/
       usesCleartextTraffic: true,
