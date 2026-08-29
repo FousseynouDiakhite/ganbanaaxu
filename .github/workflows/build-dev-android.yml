@@ -24,15 +24,15 @@ jobs:
       - name: Configurer Node.js et le Cache
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22 # 👈 Corrigé pour éviter l'erreur Node 20
           cache: 'npm'
 
-      - name: Configurer Java 17 et le Cache Gradle
-        uses: actions/setup-java@v4
+      - name: Configurer Java 17
+        uses: actions/setup-java@v5 # 👈 Mis à jour en v5
         with:
           distribution: 'zulu'
           java-version: '17'
-          cache: 'gradle'
+          # 👈 L'option cache: 'gradle' a été supprimée ici car elle faisait planter le build
 
       - name: Installer les dépendances
         run: npm install
