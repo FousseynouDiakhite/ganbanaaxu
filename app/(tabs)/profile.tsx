@@ -10723,7 +10723,7 @@ export default function Profile() {
 
 
 
-
+/*
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   SafeAreaView,
@@ -11215,6 +11215,2158 @@ export default function Profile() {
     </SafeAreaView>
   );
 }
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  useColorScheme,
+  StatusBar,
+  ScrollView,
+  TextInput,
+  Image, // Image de React Native
+  BackHandler,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context'; // <-- NOUVEL IMPORT ICI
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { supabase } from '../../lib/supabase';
+import { User } from '@supabase/supabase-js';
+
+// <-- IMPORT CHANGÉ EN 'legacy' POUR ÉVITER L'ERREUR readAsStringAsync
+import * as FileSystem from 'expo-file-system/legacy'; 
+import { decode } from 'base64-arraybuffer';
+
+// *** AJOUT : Import du compresseur en le renommant pour éviter le conflit avec <Image> ***
+import { Image as ImageCompressor } from 'react-native-compressor'; 
+
+import AdminView from '../../components/AdminView';
+import AdvertiserView from '../../components/AdvertiserView';
+
+// --- THÈME ---
+const getThemeColors = (isDark: boolean) => ({
+  background: isDark ? '#121212' : '#f8f9fa',
+  cardBackground: isDark ? '#1A1A1A' : '#FFFFFF',
+  text: isDark ? '#FFFFFF' : '#1A202C',
+  textSecondary: isDark ? '#AAA' : '#666',
+  border: isDark ? '#2D2D2D' : '#E2E8F0',
+  primary: isDark ? '#BB86FC' : '#6200EE',
+  danger: '#D32F2F',
+  success: '#388E3C',
+});
+
+type ViewMode = 'main' | 'settings';
+
+// --- UTILITAIRE : EXTRAIRE LA PREMIÈRE IMAGE ---
+const getFirstMediaUrl = (mediaData: any): string | null => {
+  if (!mediaData) return null;
+  try {
+    let parsed = typeof mediaData === 'string' ? JSON.parse(mediaData) : mediaData;
+    if (!Array.isArray(parsed)) parsed = [parsed];
+    const urls = parsed.filter((url: any) => typeof url === 'string' && url.startsWith('http'));
+    return urls.length > 0 ? urls[0] : null;
+  } catch (e) {
+    const regex = /(https?:\/\/[^\s"',\]}]+)/g;
+    const matches = (typeof mediaData === 'string' ? mediaData : JSON.stringify(mediaData)).match(regex);
+    return matches && matches.length > 0 ? matches[0] : null;
+  }
+};
+
+export default function Profile() {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const colors = useMemo(() => getThemeColors(isDark), [isDark]);
+  const router = useRouter();
+
+  // États existants
+  const [activeView, setActiveView] = useState<ViewMode>('main');
+  const [user, setUser] = useState<User | null>(null);
+  const [userRole, setUserRole] = useState<string>('user'); // "user" par défaut
+  const [loading, setLoading] = useState(true);
+  const [signOutLoading, setSignOutLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // États pour le profil
+  const [fullName, setFullName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [updating, setUpdating] = useState(false);
+
+  // États pour les publications de l'utilisateur
+  const [myPosts, setMyPosts] = useState<any[]>([]);
+  const [loadingPosts, setLoadingPosts] = useState(false);
+
+  // GESTION DU BOUTON RETOUR PHYSIQUE ANDROID
+  useEffect(() => {
+    const backAction = () => {
+      if (activeView === 'settings') {
+        setActiveView('main');
+        return true; 
+      }
+      return false; 
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [activeView]);
+
+  // Récupération des données utilisateur et de ses publications
+  useEffect(() => {
+    const getUserData = async () => {
+      try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+        
+        if (session?.user) {
+          setUser(session.user);
+          
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('full_name, avatar_url, role')
+            .eq('id', session.user.id)
+            .single();
+
+          if (profileData) {
+            setFullName(profileData.full_name || '');
+            setAvatarUrl(profileData.avatar_url || '');
+            setUserRole(profileData.role || 'user');
+          }
+
+          fetchMyPosts(session.user.id);
+        }
+      } catch (err: any) {
+        console.error('Erreur profil :', err.message);
+        setError('Mode hors ligne ou erreur de chargement.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    getUserData();
+  }, []);
+
+  const fetchMyPosts = async (userId: string) => {
+    setLoadingPosts(true);
+    try {
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setMyPosts(data || []);
+    } catch (err: any) {
+      console.error('Erreur récupération posts :', err.message);
+    } finally {
+      setLoadingPosts(false);
+    }
+  };
+
+  const handleDeletePost = (postId: string) => {
+    Alert.alert(
+      "Supprimer la publication",
+      "Êtes-vous sûr de vouloir supprimer cette publication ? Cette action est irréversible.",
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Supprimer",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const { error } = await supabase.from('posts').delete().eq('id', postId);
+              if (error) throw error;
+              
+              setMyPosts(prevPosts => prevPosts.filter(post => post.id !== postId));
+              Alert.alert("Succès", "La publication a été supprimée.");
+            } catch (err: any) {
+              Alert.alert("Erreur", "Impossible de supprimer la publication.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleUpdateName = async () => {
+    if (!user) return;
+    try {
+      setUpdating(true);
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ full_name: fullName })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+      Alert.alert('Succès', 'Ton nom a été mis à jour.');
+    } catch (err: any) {
+      Alert.alert('Erreur', err.message);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handlePickImage = async () => {
+    if (!user) return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['image'], // <-- CORRECTION DE L'AVERTISSEMENT MEDIATYPE
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1, // Laisser le compresseur gérer la qualité finale
+    });
+
+    if (!result.canceled) {
+      try {
+        setUpdating(true);
+        const originalUri = result.assets[0].uri;
+
+        // *** AJOUT : Compression de l'image ***
+        const compressedUri = await ImageCompressor.compress(originalUri, {
+          compressionMethod: 'auto',
+          quality: 0.7, // Ajustez la qualité de compression selon vos besoins
+        });
+
+        // Lecture du fichier compressé (au lieu de l'original)
+        const base64 = await FileSystem.readAsStringAsync(compressedUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        const arrayBuffer = decode(base64);
+        const filePath = `${user.id}/${Date.now()}.jpg`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, arrayBuffer, {
+            contentType: 'image/jpeg',
+            upsert: true, 
+          });
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(filePath);
+
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ avatar_url: publicUrl })
+          .eq('id', user.id);
+
+        if (updateError) throw updateError;
+
+        setAvatarUrl(publicUrl);
+        Alert.alert('Succès', 'Photo de profil mise à jour !');
+      } catch (err: any) {
+        console.error('Erreur Upload:', err);
+        Alert.alert("Erreur d'upload", err.message || 'Une erreur est survenue.');
+      } finally {
+        setUpdating(false);
+      }
+    }
+  };
+
+  const handleSignOut = async () => {
+    Alert.alert(
+      'Déconnexion',
+      'Êtes-vous sûr de vouloir vous déconnecter ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Déconnexion',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setSignOutLoading(true);
+              const { error: signOutError } = await supabase.auth.signOut();
+              if (signOutError) throw signOutError;
+              router.replace('/');
+            } catch (err: any) {
+              Alert.alert('Erreur', err.message || 'Impossible de se déconnecter.');
+              setSignOutLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    scrollContent: { flexGrow: 1, padding: 24 },
+    backButton: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', marginBottom: 16, marginTop: 8 },
+    backButtonText: { fontSize: 16, fontWeight: '600', color: colors.primary, marginLeft: 4 },
+    title: { fontSize: 28, fontWeight: 'bold', color: colors.text, marginBottom: 24 },
+    sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 16 },
+    menuButton: { width: '100%', backgroundColor: colors.cardBackground, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: colors.border, marginBottom: 16, flexDirection: 'row', alignItems: 'center', elevation: 1 },
+    menuLeftContent: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+    menuButtonText: { fontSize: 16, fontWeight: '600', color: colors.text, marginLeft: 12 },
+    card: { width: '100%', backgroundColor: colors.cardBackground, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: colors.border, marginBottom: 20 },
+    label: { fontSize: 12, fontWeight: '600', color: colors.textSecondary, textTransform: 'uppercase', marginBottom: 4 },
+    value: { fontSize: 16, fontWeight: '500', color: colors.text, marginBottom: 16 },
+    signOutButton: { width: '100%', backgroundColor: colors.danger, padding: 15, borderRadius: 12, alignItems: 'center' },
+    signOutButtonText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
+    errorText: { color: colors.danger, marginBottom: 16, textAlign: 'center' },
+    
+    avatarContainer: { alignItems: 'center', marginBottom: 24 },
+    avatar: { width: 100, height: 100, borderRadius: 50, backgroundColor: colors.border, marginBottom: 12 },
+    avatarPlaceholder: { width: 100, height: 100, borderRadius: 50, backgroundColor: colors.border, marginBottom: 12, justifyContent: 'center', alignItems: 'center' },
+    changePhotoText: { color: colors.primary, fontWeight: '600', fontSize: 14 },
+    input: { backgroundColor: colors.background, color: colors.text, borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 12 },
+    saveButton: { backgroundColor: colors.primary, padding: 12, borderRadius: 8, alignItems: 'center' },
+    saveButtonText: { color: '#FFF', fontWeight: 'bold', fontSize: 14 },
+
+    postItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
+    postThumbnail: { width: 50, height: 50, borderRadius: 8, marginRight: 12, backgroundColor: colors.border },
+    iconThumbnail: { width: 50, height: 50, borderRadius: 8, marginRight: 12, backgroundColor: colors.border, justifyContent: 'center', alignItems: 'center' },
+    postContent: { flex: 1, marginRight: 12 },
+    postCaption: { fontSize: 14, color: colors.text, fontWeight: '500', marginBottom: 4 },
+    postDate: { fontSize: 12, color: colors.textSecondary },
+    emptyText: { color: colors.textSecondary, fontStyle: 'italic', textAlign: 'center', marginTop: 10 },
+  }), [colors]);
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        
+        {activeView === 'main' && (
+          <View>
+          
+            <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 24}}>
+              {avatarUrl ? (
+                <Image source={{ uri: avatarUrl }} style={[styles.avatar, { width: 50, height: 50, marginBottom: 0, marginRight: 16 }]} />
+              ) : (
+                <View style={[styles.avatarPlaceholder, { width: 50, height: 50, marginBottom: 0, marginRight: 16 }]}>
+                   <Ionicons name="person" size={24} color={colors.textSecondary} />
+                </View>
+              )}
+              <View>
+                <Text style={[styles.title, { marginBottom: 0, fontSize: 22 }]}>
+                  {fullName || 'Mon Profil'}
+                </Text>
+                <Text style={{color: colors.textSecondary}}>{user?.email}</Text>
+              </View>
+            </View>
+
+            
+            {userRole === 'admin' && <AdminView />}
+            {userRole === 'advertiser' && <AdvertiserView />}
+
+            {error && <Text style={styles.errorText}>{error}</Text>}
+
+          
+            <TouchableOpacity 
+              style={styles.menuButton} 
+              onPress={() => setActiveView('settings')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.menuLeftContent}>
+                <Ionicons name="settings-outline" size={22} color={colors.primary} />
+                <Text style={styles.menuButtonText}>Paramètres du profil</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+
+            {(userRole === 'admin' || userRole === 'advertiser') && (
+              <View style={styles.card}>
+                <Text style={styles.sectionTitle}>Mes Publications</Text>
+                
+                {loadingPosts ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : myPosts.length === 0 ? (
+                  <Text style={styles.emptyText}>Vous n'avez pas encore publié.</Text>
+                ) : (
+                  myPosts.map((post) => {
+                    const firstMediaUrl = getFirstMediaUrl(post.media_urls);
+                    const hasAudio = typeof post.audio_url === 'string' && post.audio_url.length > 0;
+
+                    return (
+                      <View key={post.id} style={styles.postItem}>
+                        
+                        {firstMediaUrl ? (
+                          <Image source={{ uri: firstMediaUrl }} style={styles.postThumbnail} />
+                        ) : hasAudio ? (
+                          <View style={styles.iconThumbnail}>
+                            <Ionicons name="mic" size={24} color={colors.textSecondary} />
+                          </View>
+                        ) : (
+                          <View style={styles.iconThumbnail}>
+                            <Ionicons name="document-text-outline" size={24} color={colors.textSecondary} />
+                          </View>
+                        )}
+
+                        <View style={styles.postContent}>
+                          <Text style={styles.postCaption} numberOfLines={2}>
+                            {post.caption || (hasAudio ? "Note vocale" : "Publication sans texte")}
+                          </Text>
+                          <Text style={styles.postDate}>
+                            {new Date(post.created_at).toLocaleDateString()}
+                          </Text>
+                        </View>
+
+                        <TouchableOpacity 
+                          onPress={() => handleDeletePost(post.id)}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                          <Ionicons name="trash-outline" size={22} color={colors.danger} />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })
+                )}
+              </View>
+            )}
+
+          </View>
+        )}
+
+      
+        {activeView === 'settings' && (
+          <View>
+            <TouchableOpacity style={styles.backButton} onPress={() => setActiveView('main')}>
+              <Ionicons name="arrow-back" size={20} color={colors.primary} />
+              <Text style={styles.backButtonText}>Retour au profil</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.title}>Paramètres</Text>
+
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Modifier mon profil</Text>
+              
+              <View style={styles.avatarContainer}>
+                <TouchableOpacity onPress={handlePickImage} disabled={updating}>
+                  {avatarUrl ? (
+                    <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+                  ) : (
+                    <View style={styles.avatarPlaceholder}>
+                      <Ionicons name="camera" size={32} color={colors.textSecondary} />
+                    </View>
+                  )}
+                  <Text style={styles.changePhotoText}>Changer la photo</Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.label}>Nom d'utilisateur</Text>
+              <TextInput
+                style={styles.input}
+                value={fullName}
+                onChangeText={setFullName}
+                placeholder="Votre nom"
+                placeholderTextColor={colors.textSecondary}
+              />
+              
+              <TouchableOpacity style={styles.saveButton} onPress={handleUpdateName} disabled={updating}>
+                {updating ? (
+                  <ActivityIndicator color="#FFF" size="small" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Enregistrer le nom</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Informations de compte</Text>
+              <Text style={styles.label}>Adresse Email</Text>
+              <Text style={styles.value}>{user?.email || 'Non renseigné'}</Text>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Session</Text>
+              <TouchableOpacity
+                style={styles.signOutButton}
+                onPress={handleSignOut}
+                disabled={signOutLoading}
+                activeOpacity={0.8}
+              >
+                {signOutLoading ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={styles.signOutButtonText}>Se déconnecter</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  useColorScheme,
+  StatusBar,
+  ScrollView,
+  TextInput,
+  Image, // Image de React Native
+  BackHandler,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { supabase } from '../../lib/supabase';
+import { User } from '@supabase/supabase-js';
+
+// <-- IMPORT CORRIGÉ : On utilise l'import standard d'Expo
+import * as FileSystem from 'expo-file-system/legacy'; 
+import { decode } from 'base64-arraybuffer';
+
+// *** Import du compresseur en le renommant pour éviter le conflit avec <Image> ***
+import { Image as ImageCompressor } from 'react-native-compressor'; 
+
+import AdminView from '../../components/AdminView';
+import AdvertiserView from '../../components/AdvertiserView';
+
+// --- THÈME ---
+const getThemeColors = (isDark: boolean) => ({
+  background: isDark ? '#121212' : '#f8f9fa',
+  cardBackground: isDark ? '#1A1A1A' : '#FFFFFF',
+  text: isDark ? '#FFFFFF' : '#1A202C',
+  textSecondary: isDark ? '#AAA' : '#666',
+  border: isDark ? '#2D2D2D' : '#E2E8F0',
+  primary: isDark ? '#BB86FC' : '#6200EE',
+  danger: '#D32F2F',
+  success: '#388E3C',
+});
+
+type ViewMode = 'main' | 'settings';
+
+// --- UTILITAIRE : EXTRAIRE LA PREMIÈRE IMAGE ---
+const getFirstMediaUrl = (mediaData: any): string | null => {
+  if (!mediaData) return null;
+  try {
+    let parsed = typeof mediaData === 'string' ? JSON.parse(mediaData) : mediaData;
+    if (!Array.isArray(parsed)) parsed = [parsed];
+    const urls = parsed.filter((url: any) => typeof url === 'string' && url.startsWith('http'));
+    return urls.length > 0 ? urls[0] : null;
+  } catch (e) {
+    const regex = /(https?:\/\/[^\s"',\]}]+)/g;
+    const matches = (typeof mediaData === 'string' ? mediaData : JSON.stringify(mediaData)).match(regex);
+    return matches && matches.length > 0 ? matches[0] : null;
+  }
+};
+
+export default function Profile() {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const colors = useMemo(() => getThemeColors(isDark), [isDark]);
+  const router = useRouter();
+
+  // États existants
+  const [activeView, setActiveView] = useState<ViewMode>('main');
+  const [user, setUser] = useState<User | null>(null);
+  const [userRole, setUserRole] = useState<string>('user'); // "user" par défaut
+  const [loading, setLoading] = useState(true);
+  const [signOutLoading, setSignOutLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // États pour le profil
+  const [fullName, setFullName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [updating, setUpdating] = useState(false);
+
+  // États pour les publications de l'utilisateur
+  const [myPosts, setMyPosts] = useState<any[]>([]);
+  const [loadingPosts, setLoadingPosts] = useState(false);
+
+  // GESTION DU BOUTON RETOUR PHYSIQUE ANDROID
+  useEffect(() => {
+    const backAction = () => {
+      if (activeView === 'settings') {
+        setActiveView('main');
+        return true; 
+      }
+      return false; 
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [activeView]);
+
+  // Récupération des données utilisateur et de ses publications
+  useEffect(() => {
+    const getUserData = async () => {
+      try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+        
+        if (session?.user) {
+          setUser(session.user);
+          
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('full_name, avatar_url, role')
+            .eq('id', session.user.id)
+            .single();
+
+          if (profileData) {
+            setFullName(profileData.full_name || '');
+            setAvatarUrl(profileData.avatar_url || '');
+            setUserRole(profileData.role || 'user');
+          }
+
+          fetchMyPosts(session.user.id);
+        }
+      } catch (err: any) {
+        console.error('Erreur profil :', err.message);
+        setError('Mode hors ligne ou erreur de chargement.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    getUserData();
+  }, []);
+
+  const fetchMyPosts = async (userId: string) => {
+    setLoadingPosts(true);
+    try {
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setMyPosts(data || []);
+    } catch (err: any) {
+      console.error('Erreur récupération posts :', err.message);
+    } finally {
+      setLoadingPosts(false);
+    }
+  };
+
+  const handleDeletePost = (postId: string) => {
+    Alert.alert(
+      "Supprimer la publication",
+      "Êtes-vous sûr de vouloir supprimer cette publication ? Cette action est irréversible.",
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Supprimer",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const { error } = await supabase.from('posts').delete().eq('id', postId);
+              if (error) throw error;
+              
+              setMyPosts(prevPosts => prevPosts.filter(post => post.id !== postId));
+              Alert.alert("Succès", "La publication a été supprimée.");
+            } catch (err: any) {
+              Alert.alert("Erreur", "Impossible de supprimer la publication.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleUpdateName = async () => {
+    if (!user) return;
+    try {
+      setUpdating(true);
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ full_name: fullName })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+      Alert.alert('Succès', 'Ton nom a été mis à jour.');
+    } catch (err: any) {
+      Alert.alert('Erreur', err.message);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handlePickImage = async () => {
+    if (!user) return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      // <-- CORRECTION ICI : 'images' au pluriel pour éviter l'erreur de typage
+      mediaTypes: ['images'], 
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      try {
+        setUpdating(true);
+        const originalUri = result.assets[0].uri;
+
+        // *** Compression de l'image ***
+        const compressedUri = await ImageCompressor.compress(originalUri, {
+          compressionMethod: 'auto',
+          quality: 0.7,
+        });
+
+        // Lecture du fichier compressé
+        const base64 = await FileSystem.readAsStringAsync(compressedUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        const arrayBuffer = decode(base64);
+        const filePath = `${user.id}/${Date.now()}.jpg`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, arrayBuffer, {
+            contentType: 'image/jpeg',
+            upsert: true, 
+          });
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(filePath);
+
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ avatar_url: publicUrl })
+          .eq('id', user.id);
+
+        if (updateError) throw updateError;
+
+        setAvatarUrl(publicUrl);
+        Alert.alert('Succès', 'Photo de profil mise à jour !');
+      } catch (err: any) {
+        console.error('Erreur Upload:', err);
+        Alert.alert("Erreur d'upload", err.message || 'Une erreur est survenue.');
+      } finally {
+        setUpdating(false);
+      }
+    }
+  };
+
+  const handleSignOut = async () => {
+    Alert.alert(
+      'Déconnexion',
+      'Êtes-vous sûr de vouloir vous déconnecter ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Déconnexion',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setSignOutLoading(true);
+              const { error: signOutError } = await supabase.auth.signOut();
+              if (signOutError) throw signOutError;
+              router.replace('/');
+            } catch (err: any) {
+              Alert.alert('Erreur', err.message || 'Impossible de se déconnecter.');
+              setSignOutLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    scrollContent: { flexGrow: 1, padding: 24 },
+    backButton: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', marginBottom: 16, marginTop: 8 },
+    backButtonText: { fontSize: 16, fontWeight: '600', color: colors.primary, marginLeft: 4 },
+    title: { fontSize: 28, fontWeight: 'bold', color: colors.text, marginBottom: 24 },
+    sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 16 },
+    menuButton: { width: '100%', backgroundColor: colors.cardBackground, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: colors.border, marginBottom: 16, flexDirection: 'row', alignItems: 'center', elevation: 1 },
+    menuLeftContent: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+    menuButtonText: { fontSize: 16, fontWeight: '600', color: colors.text, marginLeft: 12 },
+    card: { width: '100%', backgroundColor: colors.cardBackground, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: colors.border, marginBottom: 20 },
+    label: { fontSize: 12, fontWeight: '600', color: colors.textSecondary, textTransform: 'uppercase', marginBottom: 4 },
+    value: { fontSize: 16, fontWeight: '500', color: colors.text, marginBottom: 16 },
+    signOutButton: { width: '100%', backgroundColor: colors.danger, padding: 15, borderRadius: 12, alignItems: 'center' },
+    signOutButtonText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
+    errorText: { color: colors.danger, marginBottom: 16, textAlign: 'center' },
+    
+    avatarContainer: { alignItems: 'center', marginBottom: 24 },
+    avatar: { width: 100, height: 100, borderRadius: 50, backgroundColor: colors.border, marginBottom: 12 },
+    avatarPlaceholder: { width: 100, height: 100, borderRadius: 50, backgroundColor: colors.border, marginBottom: 12, justifyContent: 'center', alignItems: 'center' },
+    changePhotoText: { color: colors.primary, fontWeight: '600', fontSize: 14 },
+    input: { backgroundColor: colors.background, color: colors.text, borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 12 },
+    saveButton: { backgroundColor: colors.primary, padding: 12, borderRadius: 8, alignItems: 'center' },
+    saveButtonText: { color: '#FFF', fontWeight: 'bold', fontSize: 14 },
+
+    postItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
+    postThumbnail: { width: 50, height: 50, borderRadius: 8, marginRight: 12, backgroundColor: colors.border },
+    iconThumbnail: { width: 50, height: 50, borderRadius: 8, marginRight: 12, backgroundColor: colors.border, justifyContent: 'center', alignItems: 'center' },
+    postContent: { flex: 1, marginRight: 12 },
+    postCaption: { fontSize: 14, color: colors.text, fontWeight: '500', marginBottom: 4 },
+    postDate: { fontSize: 12, color: colors.textSecondary },
+    emptyText: { color: colors.textSecondary, fontStyle: 'italic', textAlign: 'center', marginTop: 10 },
+  }), [colors]);
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        
+        {activeView === 'main' && (
+          <View>
+          
+            <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 24}}>
+              {avatarUrl ? (
+                <Image source={{ uri: avatarUrl }} style={[styles.avatar, { width: 50, height: 50, marginBottom: 0, marginRight: 16 }]} />
+              ) : (
+                <View style={[styles.avatarPlaceholder, { width: 50, height: 50, marginBottom: 0, marginRight: 16 }]}>
+                   <Ionicons name="person" size={24} color={colors.textSecondary} />
+                </View>
+              )}
+              <View>
+                <Text style={[styles.title, { marginBottom: 0, fontSize: 22 }]}>
+                  {fullName || 'Mon Profil'}
+                </Text>
+                <Text style={{color: colors.textSecondary}}>{user?.email}</Text>
+              </View>
+            </View>
+
+            
+            {userRole === 'admin' && <AdminView />}
+            {userRole === 'advertiser' && <AdvertiserView />}
+
+            {error && <Text style={styles.errorText}>{error}</Text>}
+
+          
+            <TouchableOpacity 
+              style={styles.menuButton} 
+              onPress={() => setActiveView('settings')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.menuLeftContent}>
+                <Ionicons name="settings-outline" size={22} color={colors.primary} />
+                <Text style={styles.menuButtonText}>Paramètres du profil</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+
+            {(userRole === 'admin' || userRole === 'advertiser') && (
+              <View style={styles.card}>
+                <Text style={styles.sectionTitle}>Mes Publications</Text>
+                
+                {loadingPosts ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : myPosts.length === 0 ? (
+                  <Text style={styles.emptyText}>Vous n'avez pas encore publié.</Text>
+                ) : (
+                  myPosts.map((post) => {
+                    const firstMediaUrl = getFirstMediaUrl(post.media_urls);
+                    const hasAudio = typeof post.audio_url === 'string' && post.audio_url.length > 0;
+
+                    return (
+                      <View key={post.id} style={styles.postItem}>
+                        
+                        {firstMediaUrl ? (
+                          <Image source={{ uri: firstMediaUrl }} style={styles.postThumbnail} />
+                        ) : hasAudio ? (
+                          <View style={styles.iconThumbnail}>
+                            <Ionicons name="mic" size={24} color={colors.textSecondary} />
+                          </View>
+                        ) : (
+                          <View style={styles.iconThumbnail}>
+                            <Ionicons name="document-text-outline" size={24} color={colors.textSecondary} />
+                          </View>
+                        )}
+
+                        <View style={styles.postContent}>
+                          <Text style={styles.postCaption} numberOfLines={2}>
+                            {post.caption || (hasAudio ? "Note vocale" : "Publication sans texte")}
+                          </Text>
+                          <Text style={styles.postDate}>
+                            {new Date(post.created_at).toLocaleDateString()}
+                          </Text>
+                        </View>
+
+                        <TouchableOpacity 
+                          onPress={() => handleDeletePost(post.id)}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                          <Ionicons name="trash-outline" size={22} color={colors.danger} />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })
+                )}
+              </View>
+            )}
+
+          </View>
+        )}
+
+      
+        {activeView === 'settings' && (
+          <View>
+            <TouchableOpacity style={styles.backButton} onPress={() => setActiveView('main')}>
+              <Ionicons name="arrow-back" size={20} color={colors.primary} />
+              <Text style={styles.backButtonText}>Retour au profil</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.title}>Paramètres</Text>
+
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Modifier mon profil</Text>
+              
+              <View style={styles.avatarContainer}>
+                <TouchableOpacity onPress={handlePickImage} disabled={updating}>
+                  {avatarUrl ? (
+                    <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+                  ) : (
+                    <View style={styles.avatarPlaceholder}>
+                      <Ionicons name="camera" size={32} color={colors.textSecondary} />
+                    </View>
+                  )}
+                  <Text style={styles.changePhotoText}>Changer la photo</Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.label}>Nom d'utilisateur</Text>
+              <TextInput
+                style={styles.input}
+                value={fullName}
+                onChangeText={setFullName}
+                placeholder="Votre nom"
+                placeholderTextColor={colors.textSecondary}
+              />
+              
+              <TouchableOpacity style={styles.saveButton} onPress={handleUpdateName} disabled={updating}>
+                {updating ? (
+                  <ActivityIndicator color="#FFF" size="small" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Enregistrer le nom</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Informations de compte</Text>
+              <Text style={styles.label}>Adresse Email</Text>
+              <Text style={styles.value}>{user?.email || 'Non renseigné'}</Text>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Session</Text>
+              <TouchableOpacity
+                style={styles.signOutButton}
+                onPress={handleSignOut}
+                disabled={signOutLoading}
+                activeOpacity={0.8}
+              >
+                {signOutLoading ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={styles.signOutButtonText}>Se déconnecter</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  useColorScheme,
+  StatusBar,
+  ScrollView,
+  TextInput,
+  Image,
+  BackHandler,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { supabase } from '../../lib/supabase';
+import { User } from '@supabase/supabase-js';
+
+import * as FileSystem from 'expo-file-system/legacy'; 
+import { decode } from 'base64-arraybuffer';
+import { Image as ImageCompressor } from 'react-native-compressor'; 
+
+import AdminView from '../../components/AdminView';
+import AdvertiserView from '../../components/AdvertiserView';
+
+// --- THÈME ---
+const getThemeColors = (isDark: boolean) => ({
+  background: isDark ? '#121212' : '#f8f9fa',
+  cardBackground: isDark ? '#1A1A1A' : '#FFFFFF',
+  text: isDark ? '#FFFFFF' : '#1A202C',
+  textSecondary: isDark ? '#AAA' : '#666',
+  border: isDark ? '#2D2D2D' : '#E2E8F0',
+  primary: isDark ? '#BB86FC' : '#6200EE',
+  danger: '#D32F2F',
+  success: '#388E3C',
+});
+
+type ViewMode = 'main' | 'settings';
+
+// --- UTILITAIRES DÉTECTION DES MÉDIAS (IMAGE VS VIDÉO) ---
+const isImageUrl = (url: string) => {
+  if (typeof url !== 'string') return false;
+  const cleanUrl = url.split('?')[0].toLowerCase();
+  return cleanUrl.endsWith('.jpg') || cleanUrl.endsWith('.jpeg') || cleanUrl.endsWith('.png') || cleanUrl.endsWith('.webp') || cleanUrl.endsWith('.gif');
+};
+
+const isVideoUrl = (url: string) => {
+  if (typeof url !== 'string') return false;
+  const cleanUrl = url.split('?')[0].toLowerCase();
+  return cleanUrl.endsWith('.mp4') || cleanUrl.endsWith('.mov') || cleanUrl.endsWith('.m4v') || cleanUrl.endsWith('.webm');
+};
+
+const extractMediaInfo = (mediaData: any) => {
+  if (!mediaData) return { imageUrl: null, videoUrl: null };
+
+  let urls: string[] = [];
+  if (Array.isArray(mediaData)) {
+    urls = mediaData;
+  } else if (typeof mediaData === 'string') {
+    try {
+      const parsed = JSON.parse(mediaData);
+      urls = Array.isArray(parsed) ? parsed : [mediaData];
+    } catch {
+      urls = [mediaData];
+    }
+  }
+
+  const imageUrl = urls.find(url => typeof url === 'string' && isImageUrl(url)) || null;
+  const videoUrl = urls.find(url => typeof url === 'string' && isVideoUrl(url)) || null;
+
+  return { imageUrl, videoUrl };
+};
+
+export default function Profile() {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const colors = useMemo(() => getThemeColors(isDark), [isDark]);
+  const router = useRouter();
+
+  const [activeView, setActiveView] = useState<ViewMode>('main');
+  const [user, setUser] = useState<User | null>(null);
+  const [userRole, setUserRole] = useState<string>('user');
+  const [loading, setLoading] = useState(true);
+  const [signOutLoading, setSignOutLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [fullName, setFullName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [updating, setUpdating] = useState(false);
+
+  const [myPosts, setMyPosts] = useState<any[]>([]);
+  const [loadingPosts, setLoadingPosts] = useState(false);
+
+  useEffect(() => {
+    const backAction = () => {
+      if (activeView === 'settings') {
+        setActiveView('main');
+        return true; 
+      }
+      return false; 
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [activeView]);
+
+  useEffect(() => {
+    const getUserData = async () => {
+      try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+        
+        if (session?.user) {
+          setUser(session.user);
+          
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('full_name, avatar_url, role')
+            .eq('id', session.user.id)
+            .single();
+
+          if (profileData) {
+            setFullName(profileData.full_name || '');
+            setAvatarUrl(profileData.avatar_url || '');
+            setUserRole(profileData.role || 'user');
+          }
+
+          fetchMyPosts(session.user.id);
+        }
+      } catch (err: any) {
+        console.error('Erreur profil :', err.message);
+        setError('Mode hors ligne ou erreur de chargement.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    getUserData();
+  }, []);
+
+  const fetchMyPosts = async (userId: string) => {
+    setLoadingPosts(true);
+    try {
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setMyPosts(data || []);
+    } catch (err: any) {
+      console.error('Erreur récupération posts :', err.message);
+    } finally {
+      setLoadingPosts(false);
+    }
+  };
+
+  const handleDeletePost = (postId: string) => {
+    Alert.alert(
+      "Supprimer la publication",
+      "Êtes-vous sûr de vouloir supprimer cette publication ? Cette action est irréversible.",
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Supprimer",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const { error } = await supabase.from('posts').delete().eq('id', postId);
+              if (error) throw error;
+              
+              setMyPosts(prevPosts => prevPosts.filter(post => post.id !== postId));
+              Alert.alert("Succès", "La publication a été supprimée.");
+            } catch (err: any) {
+              Alert.alert("Erreur", "Impossible de supprimer la publication.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleUpdateName = async () => {
+    if (!user) return;
+    try {
+      setUpdating(true);
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ full_name: fullName })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+      Alert.alert('Succès', 'Ton nom a été mis à jour.');
+    } catch (err: any) {
+      Alert.alert('Erreur', err.message);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handlePickImage = async () => {
+    if (!user) return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'], 
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      try {
+        setUpdating(true);
+        const originalUri = result.assets[0].uri;
+
+        const compressedUri = await ImageCompressor.compress(originalUri, {
+          compressionMethod: 'auto',
+          quality: 0.7,
+        });
+
+        const base64 = await FileSystem.readAsStringAsync(compressedUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        const arrayBuffer = decode(base64);
+        const filePath = `${user.id}/${Date.now()}.jpg`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, arrayBuffer, {
+            contentType: 'image/jpeg',
+            upsert: true, 
+          });
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(filePath);
+
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ avatar_url: publicUrl })
+          .eq('id', user.id);
+
+        if (updateError) throw updateError;
+
+        setAvatarUrl(publicUrl);
+        Alert.alert('Succès', 'Photo de profil mise à jour !');
+      } catch (err: any) {
+        console.error('Erreur Upload:', err);
+        Alert.alert("Erreur d'upload", err.message || 'Une erreur est survenue.');
+      } finally {
+        setUpdating(false);
+      }
+    }
+  };
+
+  const handleSignOut = async () => {
+    Alert.alert(
+      'Déconnexion',
+      'Êtes-vous sûr de vouloir vous déconnecter ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Déconnexion',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setSignOutLoading(true);
+              const { error: signOutError } = await supabase.auth.signOut();
+              if (signOutError) throw signOutError;
+              router.replace('/');
+            } catch (err: any) {
+              Alert.alert('Erreur', err.message || 'Impossible de se déconnecter.');
+              setSignOutLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    scrollContent: { flexGrow: 1, padding: 24 },
+    backButton: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', marginBottom: 16, marginTop: 8 },
+    backButtonText: { fontSize: 16, fontWeight: '600', color: colors.primary, marginLeft: 4 },
+    title: { fontSize: 28, fontWeight: 'bold', color: colors.text, marginBottom: 24 },
+    sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 16 },
+    menuButton: { width: '100%', backgroundColor: colors.cardBackground, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: colors.border, marginBottom: 16, flexDirection: 'row', alignItems: 'center', elevation: 1 },
+    menuLeftContent: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+    menuButtonText: { fontSize: 16, fontWeight: '600', color: colors.text, marginLeft: 12 },
+    card: { width: '100%', backgroundColor: colors.cardBackground, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: colors.border, marginBottom: 20 },
+    label: { fontSize: 12, fontWeight: '600', color: colors.textSecondary, textTransform: 'uppercase', marginBottom: 4 },
+    value: { fontSize: 16, fontWeight: '500', color: colors.text, marginBottom: 16 },
+    signOutButton: { width: '100%', backgroundColor: colors.danger, padding: 15, borderRadius: 12, alignItems: 'center' },
+    signOutButtonText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
+    errorText: { color: colors.danger, marginBottom: 16, textAlign: 'center' },
+    
+    avatarContainer: { alignItems: 'center', marginBottom: 24 },
+    avatar: { width: 100, height: 100, borderRadius: 50, backgroundColor: colors.border, marginBottom: 12 },
+    avatarPlaceholder: { width: 100, height: 100, borderRadius: 50, backgroundColor: colors.border, marginBottom: 12, justifyContent: 'center', alignItems: 'center' },
+    changePhotoText: { color: colors.primary, fontWeight: '600', fontSize: 14 },
+    input: { backgroundColor: colors.background, color: colors.text, borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 12 },
+    saveButton: { backgroundColor: colors.primary, padding: 12, borderRadius: 8, alignItems: 'center' },
+    saveButtonText: { color: '#FFF', fontWeight: 'bold', fontSize: 14 },
+
+    postItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
+    postThumbnail: { width: 50, height: 50, borderRadius: 8, marginRight: 12, backgroundColor: colors.border },
+    iconThumbnail: { width: 50, height: 50, borderRadius: 8, marginRight: 12, backgroundColor: colors.border, justifyContent: 'center', alignItems: 'center' },
+    postContent: { flex: 1, marginRight: 12 },
+    postCaption: { fontSize: 14, color: colors.text, fontWeight: '500', marginBottom: 4 },
+    postDate: { fontSize: 12, color: colors.textSecondary },
+    emptyText: { color: colors.textSecondary, fontStyle: 'italic', textAlign: 'center', marginTop: 10 },
+  }), [colors]);
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        
+        {activeView === 'main' && (
+          <View>
+          
+            <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 24}}>
+              {avatarUrl ? (
+                <Image source={{ uri: avatarUrl }} style={[styles.avatar, { width: 50, height: 50, marginBottom: 0, marginRight: 16 }]} />
+              ) : (
+                <View style={[styles.avatarPlaceholder, { width: 50, height: 50, marginBottom: 0, marginRight: 16 }]}>
+                   <Ionicons name="person" size={24} color={colors.textSecondary} />
+                </View>
+              )}
+              <View>
+                <Text style={[styles.title, { marginBottom: 0, fontSize: 22 }]}>
+                  {fullName || 'Mon Profil'}
+                </Text>
+                <Text style={{color: colors.textSecondary}}>{user?.email}</Text>
+              </View>
+            </View>
+
+            {userRole === 'admin' && <AdminView />}
+            {userRole === 'advertiser' && <AdvertiserView />}
+
+            {error && <Text style={styles.errorText}>{error}</Text>}
+
+            <TouchableOpacity 
+              style={styles.menuButton} 
+              onPress={() => setActiveView('settings')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.menuLeftContent}>
+                <Ionicons name="settings-outline" size={22} color={colors.primary} />
+                <Text style={styles.menuButtonText}>Paramètres du profil</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+
+            {(userRole === 'admin' || userRole === 'advertiser') && (
+              <View style={styles.card}>
+                <Text style={styles.sectionTitle}>Mes Publications</Text>
+                
+                {loadingPosts ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : myPosts.length === 0 ? (
+                  <Text style={styles.emptyText}>Vous n'avez pas encore publié.</Text>
+                ) : (
+                  myPosts.map((post) => {
+                    const { imageUrl, videoUrl } = extractMediaInfo(post.media_urls);
+                    const hasAudio = typeof post.audio_url === 'string' && post.audio_url.length > 0;
+
+                    // Détermination du libellé descriptive si la légende est vide
+                    const defaultCaption = imageUrl 
+                      ? "Publication avec image" 
+                      : videoUrl 
+                      ? "Vidéo" 
+                      : hasAudio 
+                      ? "Note vocale" 
+                      : "Publication";
+
+                    return (
+                      <View key={post.id} style={styles.postItem}>
+                       
+                        {imageUrl ? (
+                          <Image 
+                            source={{ uri: imageUrl }} 
+                            style={styles.postThumbnail} 
+                            resizeMode="cover"
+                          />
+                        ) : videoUrl ? (
+                          <View style={styles.iconThumbnail}>
+                            <Ionicons name="videocam" size={24} color={colors.primary} />
+                          </View>
+                        ) : hasAudio ? (
+                          <View style={styles.iconThumbnail}>
+                            <Ionicons name="mic" size={24} color={colors.textSecondary} />
+                          </View>
+                        ) : (
+                          <View style={styles.iconThumbnail}>
+                            <Ionicons name="document-text-outline" size={24} color={colors.textSecondary} />
+                          </View>
+                        )}
+
+                     
+                        <View style={styles.postContent}>
+                          <Text style={styles.postCaption} numberOfLines={2}>
+                            {post.caption || defaultCaption}
+                          </Text>
+                          <Text style={styles.postDate}>
+                            {new Date(post.created_at).toLocaleDateString()}
+                          </Text>
+                        </View>
+
+                        <TouchableOpacity 
+                          onPress={() => handleDeletePost(post.id)}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                          <Ionicons name="trash-outline" size={22} color={colors.danger} />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })
+                )}
+              </View>
+            )}
+
+          </View>
+        )}
+
+        {activeView === 'settings' && (
+          <View>
+            <TouchableOpacity style={styles.backButton} onPress={() => setActiveView('main')}>
+              <Ionicons name="arrow-back" size={20} color={colors.primary} />
+              <Text style={styles.backButtonText}>Retour au profil</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.title}>Paramètres</Text>
+
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Modifier mon profil</Text>
+              
+              <View style={styles.avatarContainer}>
+                <TouchableOpacity onPress={handlePickImage} disabled={updating}>
+                  {avatarUrl ? (
+                    <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+                  ) : (
+                    <View style={styles.avatarPlaceholder}>
+                      <Ionicons name="camera" size={32} color={colors.textSecondary} />
+                    </View>
+                  )}
+                  <Text style={styles.changePhotoText}>Changer la photo</Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.label}>Nom d'utilisateur</Text>
+              <TextInput
+                style={styles.input}
+                value={fullName}
+                onChangeText={setFullName}
+                placeholder="Votre nom"
+                placeholderTextColor={colors.textSecondary}
+              />
+              
+              <TouchableOpacity style={styles.saveButton} onPress={handleUpdateName} disabled={updating}>
+                {updating ? (
+                  <ActivityIndicator color="#FFF" size="small" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Enregistrer le nom</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Informations de compte</Text>
+              <Text style={styles.label}>Adresse Email</Text>
+              <Text style={styles.value}>{user?.email || 'Non renseigné'}</Text>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Session</Text>
+              <TouchableOpacity
+                style={styles.signOutButton}
+                onPress={handleSignOut}
+                disabled={signOutLoading}
+                activeOpacity={0.8}
+              >
+                {signOutLoading ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={styles.signOutButtonText}>Se déconnecter</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  useColorScheme,
+  StatusBar,
+  ScrollView,
+  TextInput,
+  Image,
+  BackHandler,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import * as VideoThumbnails from 'expo-video-thumbnails'; // 👈 NOUVEL IMPORT
+import { supabase } from '../../lib/supabase';
+import { User } from '@supabase/supabase-js';
+
+import * as FileSystem from 'expo-file-system/legacy'; 
+import { decode } from 'base64-arraybuffer';
+import { Image as ImageCompressor } from 'react-native-compressor'; 
+
+import AdminView from '../../components/AdminView';
+import AdvertiserView from '../../components/AdvertiserView';
+
+// --- THÈME ---
+const getThemeColors = (isDark: boolean) => ({
+  background: isDark ? '#121212' : '#f8f9fa',
+  cardBackground: isDark ? '#1A1A1A' : '#FFFFFF',
+  text: isDark ? '#FFFFFF' : '#1A202C',
+  textSecondary: isDark ? '#AAA' : '#666',
+  border: isDark ? '#2D2D2D' : '#E2E8F0',
+  primary: isDark ? '#BB86FC' : '#6200EE',
+  danger: '#D32F2F',
+  success: '#388E3C',
+});
+
+type ViewMode = 'main' | 'settings';
+
+// --- UTILITAIRES DÉTECTION DES MÉDIAS ---
+const isImageUrl = (url: string) => {
+  if (typeof url !== 'string') return false;
+  const cleanUrl = url.split('?')[0].toLowerCase();
+  return cleanUrl.endsWith('.jpg') || cleanUrl.endsWith('.jpeg') || cleanUrl.endsWith('.png') || cleanUrl.endsWith('.webp') || cleanUrl.endsWith('.gif');
+};
+
+const isVideoUrl = (url: string) => {
+  if (typeof url !== 'string') return false;
+  const cleanUrl = url.split('?')[0].toLowerCase();
+  return cleanUrl.endsWith('.mp4') || cleanUrl.endsWith('.mov') || cleanUrl.endsWith('.m4v') || cleanUrl.endsWith('.webm');
+};
+
+const extractMediaInfo = (mediaData: any) => {
+  if (!mediaData) return { imageUrl: null, videoUrl: null };
+
+  let urls: string[] = [];
+  if (Array.isArray(mediaData)) {
+    urls = mediaData;
+  } else if (typeof mediaData === 'string') {
+    try {
+      const parsed = JSON.parse(mediaData);
+      urls = Array.isArray(parsed) ? parsed : [mediaData];
+    } catch {
+      urls = [mediaData];
+    }
+  }
+
+  const imageUrl = urls.find(url => typeof url === 'string' && isImageUrl(url)) || null;
+  const videoUrl = urls.find(url => typeof url === 'string' && isVideoUrl(url)) || null;
+
+  return { imageUrl, videoUrl };
+};
+
+// --- COMPOSANT MINIATURE INTELLIGENT ---
+const MediaThumbnail = ({ imageUrl, videoUrl, hasAudio, colors, styles }: any) => {
+  const [videoThumb, setVideoThumb] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchThumbnail = async () => {
+      // Si c'est une vidéo sans image associée, on génère une miniature
+      if (videoUrl && !imageUrl) {
+        try {
+          // Capture l'image à la première seconde (1000ms) de la vidéo
+          const { uri } = await VideoThumbnails.getThumbnailAsync(videoUrl, { time: 1000 });
+          if (isMounted) setVideoThumb(uri);
+        } catch (e) {
+          console.log("Erreur de génération de miniature vidéo", e);
+        }
+      }
+    };
+    fetchThumbnail();
+    return () => { isMounted = false; };
+  }, [videoUrl, imageUrl]);
+
+  if (imageUrl) {
+    return <Image source={{ uri: imageUrl }} style={styles.postThumbnail} resizeMode="cover" />;
+  }
+
+  if (videoUrl) {
+    return (
+      <View style={styles.postThumbnail}>
+        {videoThumb ? (
+          <Image source={{ uri: videoThumb }} style={{ width: '100%', height: '100%', borderRadius: 8 }} resizeMode="cover" />
+        ) : (
+          <View style={[styles.iconThumbnail, { marginRight: 0, width: '100%', height: '100%' }]}>
+             <Ionicons name="videocam" size={20} color={colors.primary} />
+          </View>
+        )}
+        {/* Petit indicateur Play par dessus l'image */}
+        <View style={{ position: 'absolute', bottom: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 12, padding: 2 }}>
+          <Ionicons name="play" size={12} color="#FFF" />
+        </View>
+      </View>
+    );
+  }
+
+  if (hasAudio) {
+    return (
+      <View style={styles.iconThumbnail}>
+        <Ionicons name="mic" size={24} color={colors.textSecondary} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.iconThumbnail}>
+      <Ionicons name="document-text-outline" size={24} color={colors.textSecondary} />
+    </View>
+  );
+};
+
+export default function Profile() {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const colors = useMemo(() => getThemeColors(isDark), [isDark]);
+  const router = useRouter();
+
+  const [activeView, setActiveView] = useState<ViewMode>('main');
+  const [user, setUser] = useState<User | null>(null);
+  const [userRole, setUserRole] = useState<string>('user');
+  const [loading, setLoading] = useState(true);
+  const [signOutLoading, setSignOutLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [fullName, setFullName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [updating, setUpdating] = useState(false);
+
+  const [myPosts, setMyPosts] = useState<any[]>([]);
+  const [loadingPosts, setLoadingPosts] = useState(false);
+
+  useEffect(() => {
+    const backAction = () => {
+      if (activeView === 'settings') {
+        setActiveView('main');
+        return true; 
+      }
+      return false; 
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [activeView]);
+
+  useEffect(() => {
+    const getUserData = async () => {
+      try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+        
+        if (session?.user) {
+          setUser(session.user);
+          
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('full_name, avatar_url, role')
+            .eq('id', session.user.id)
+            .single();
+
+          if (profileData) {
+            setFullName(profileData.full_name || '');
+            setAvatarUrl(profileData.avatar_url || '');
+            setUserRole(profileData.role || 'user');
+          }
+
+          fetchMyPosts(session.user.id);
+        }
+      } catch (err: any) {
+        console.error('Erreur profil :', err.message);
+        setError('Mode hors ligne ou erreur de chargement.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    getUserData();
+  }, []);
+
+  const fetchMyPosts = async (userId: string) => {
+    setLoadingPosts(true);
+    try {
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setMyPosts(data || []);
+    } catch (err: any) {
+      console.error('Erreur récupération posts :', err.message);
+    } finally {
+      setLoadingPosts(false);
+    }
+  };
+
+  const handleDeletePost = (postId: string) => {
+    Alert.alert(
+      "Supprimer la publication",
+      "Êtes-vous sûr de vouloir supprimer cette publication ? Cette action est irréversible.",
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Supprimer",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const { error } = await supabase.from('posts').delete().eq('id', postId);
+              if (error) throw error;
+              
+              setMyPosts(prevPosts => prevPosts.filter(post => post.id !== postId));
+              Alert.alert("Succès", "La publication a été supprimée.");
+            } catch (err: any) {
+              Alert.alert("Erreur", "Impossible de supprimer la publication.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleUpdateName = async () => {
+    if (!user) return;
+    try {
+      setUpdating(true);
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ full_name: fullName })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+      Alert.alert('Succès', 'Ton nom a été mis à jour.');
+    } catch (err: any) {
+      Alert.alert('Erreur', err.message);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handlePickImage = async () => {
+    if (!user) return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'], 
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      try {
+        setUpdating(true);
+        const originalUri = result.assets[0].uri;
+
+        const compressedUri = await ImageCompressor.compress(originalUri, {
+          compressionMethod: 'auto',
+          quality: 0.7,
+        });
+
+        const base64 = await FileSystem.readAsStringAsync(compressedUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        const arrayBuffer = decode(base64);
+        const filePath = `${user.id}/${Date.now()}.jpg`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, arrayBuffer, {
+            contentType: 'image/jpeg',
+            upsert: true, 
+          });
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(filePath);
+
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ avatar_url: publicUrl })
+          .eq('id', user.id);
+
+        if (updateError) throw updateError;
+
+        setAvatarUrl(publicUrl);
+        Alert.alert('Succès', 'Photo de profil mise à jour !');
+      } catch (err: any) {
+        console.error('Erreur Upload:', err);
+        Alert.alert("Erreur d'upload", err.message || 'Une erreur est survenue.');
+      } finally {
+        setUpdating(false);
+      }
+    }
+  };
+
+  const handleSignOut = async () => {
+    Alert.alert(
+      'Déconnexion',
+      'Êtes-vous sûr de vouloir vous déconnecter ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Déconnexion',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setSignOutLoading(true);
+              const { error: signOutError } = await supabase.auth.signOut();
+              if (signOutError) throw signOutError;
+              router.replace('/');
+            } catch (err: any) {
+              Alert.alert('Erreur', err.message || 'Impossible de se déconnecter.');
+              setSignOutLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    scrollContent: { flexGrow: 1, padding: 24 },
+    backButton: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', marginBottom: 16, marginTop: 8 },
+    backButtonText: { fontSize: 16, fontWeight: '600', color: colors.primary, marginLeft: 4 },
+    title: { fontSize: 28, fontWeight: 'bold', color: colors.text, marginBottom: 24 },
+    sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 16 },
+    menuButton: { width: '100%', backgroundColor: colors.cardBackground, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: colors.border, marginBottom: 16, flexDirection: 'row', alignItems: 'center', elevation: 1 },
+    menuLeftContent: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+    menuButtonText: { fontSize: 16, fontWeight: '600', color: colors.text, marginLeft: 12 },
+    card: { width: '100%', backgroundColor: colors.cardBackground, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: colors.border, marginBottom: 20 },
+    label: { fontSize: 12, fontWeight: '600', color: colors.textSecondary, textTransform: 'uppercase', marginBottom: 4 },
+    value: { fontSize: 16, fontWeight: '500', color: colors.text, marginBottom: 16 },
+    signOutButton: { width: '100%', backgroundColor: colors.danger, padding: 15, borderRadius: 12, alignItems: 'center' },
+    signOutButtonText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
+    errorText: { color: colors.danger, marginBottom: 16, textAlign: 'center' },
+    
+    avatarContainer: { alignItems: 'center', marginBottom: 24 },
+    avatar: { width: 100, height: 100, borderRadius: 50, backgroundColor: colors.border, marginBottom: 12 },
+    avatarPlaceholder: { width: 100, height: 100, borderRadius: 50, backgroundColor: colors.border, marginBottom: 12, justifyContent: 'center', alignItems: 'center' },
+    changePhotoText: { color: colors.primary, fontWeight: '600', fontSize: 14 },
+    input: { backgroundColor: colors.background, color: colors.text, borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 12 },
+    saveButton: { backgroundColor: colors.primary, padding: 12, borderRadius: 8, alignItems: 'center' },
+    saveButtonText: { color: '#FFF', fontWeight: 'bold', fontSize: 14 },
+
+    postItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
+    postThumbnail: { width: 50, height: 50, borderRadius: 8, marginRight: 12, backgroundColor: colors.border },
+    iconThumbnail: { width: 50, height: 50, borderRadius: 8, marginRight: 12, backgroundColor: colors.border, justifyContent: 'center', alignItems: 'center' },
+    postContent: { flex: 1, marginRight: 12 },
+    postCaption: { fontSize: 14, color: colors.text, fontWeight: '500', marginBottom: 4 },
+    postDate: { fontSize: 12, color: colors.textSecondary },
+    emptyText: { color: colors.textSecondary, fontStyle: 'italic', textAlign: 'center', marginTop: 10 },
+  }), [colors]);
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        
+        {activeView === 'main' && (
+          <View>
+          
+            <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 24}}>
+              {avatarUrl ? (
+                <Image source={{ uri: avatarUrl }} style={[styles.avatar, { width: 50, height: 50, marginBottom: 0, marginRight: 16 }]} />
+              ) : (
+                <View style={[styles.avatarPlaceholder, { width: 50, height: 50, marginBottom: 0, marginRight: 16 }]}>
+                   <Ionicons name="person" size={24} color={colors.textSecondary} />
+                </View>
+              )}
+              <View>
+                <Text style={[styles.title, { marginBottom: 0, fontSize: 22 }]}>
+                  {fullName || 'Mon Profil'}
+                </Text>
+                <Text style={{color: colors.textSecondary}}>{user?.email}</Text>
+              </View>
+            </View>
+
+            {userRole === 'admin' && <AdminView />}
+            {userRole === 'advertiser' && <AdvertiserView />}
+
+            {error && <Text style={styles.errorText}>{error}</Text>}
+
+            <TouchableOpacity 
+              style={styles.menuButton} 
+              onPress={() => setActiveView('settings')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.menuLeftContent}>
+                <Ionicons name="settings-outline" size={22} color={colors.primary} />
+                <Text style={styles.menuButtonText}>Paramètres du profil</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+
+            {(userRole === 'admin' || userRole === 'advertiser') && (
+              <View style={styles.card}>
+                <Text style={styles.sectionTitle}>Mes Publications</Text>
+                
+                {loadingPosts ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : myPosts.length === 0 ? (
+                  <Text style={styles.emptyText}>Vous n'avez pas encore publié.</Text>
+                ) : (
+                  myPosts.map((post) => {
+                    const { imageUrl, videoUrl } = extractMediaInfo(post.media_urls);
+                    const hasAudio = typeof post.audio_url === 'string' && post.audio_url.length > 0;
+
+                    const defaultCaption = imageUrl 
+                      ? "Publication avec image" 
+                      : videoUrl 
+                      ? "Vidéo" 
+                      : hasAudio 
+                      ? "Note vocale" 
+                      : "Publication";
+
+                    return (
+                      <View key={post.id} style={styles.postItem}>
+                        
+                        {/* 👈 UTILISATION DU NOUVEAU COMPOSANT */}
+                        <MediaThumbnail 
+                          imageUrl={imageUrl} 
+                          videoUrl={videoUrl} 
+                          hasAudio={hasAudio} 
+                          colors={colors} 
+                          styles={styles} 
+                        />
+
+                        {/* RENDU DU TEXTE */}
+                        <View style={styles.postContent}>
+                          <Text style={styles.postCaption} numberOfLines={2}>
+                            {post.caption || defaultCaption}
+                          </Text>
+                          <Text style={styles.postDate}>
+                            {new Date(post.created_at).toLocaleDateString()}
+                          </Text>
+                        </View>
+
+                        <TouchableOpacity 
+                          onPress={() => handleDeletePost(post.id)}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                          <Ionicons name="trash-outline" size={22} color={colors.danger} />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })
+                )}
+              </View>
+            )}
+
+          </View>
+        )}
+
+        {/* ... L'écran de paramètres reste inchangé ... */}
+        {activeView === 'settings' && (
+          <View>
+            <TouchableOpacity style={styles.backButton} onPress={() => setActiveView('main')}>
+              <Ionicons name="arrow-back" size={20} color={colors.primary} />
+              <Text style={styles.backButtonText}>Retour au profil</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.title}>Paramètres</Text>
+
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Modifier mon profil</Text>
+              
+              <View style={styles.avatarContainer}>
+                <TouchableOpacity onPress={handlePickImage} disabled={updating}>
+                  {avatarUrl ? (
+                    <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+                  ) : (
+                    <View style={styles.avatarPlaceholder}>
+                      <Ionicons name="camera" size={32} color={colors.textSecondary} />
+                    </View>
+                  )}
+                  <Text style={styles.changePhotoText}>Changer la photo</Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.label}>Nom d'utilisateur</Text>
+              <TextInput
+                style={styles.input}
+                value={fullName}
+                onChangeText={setFullName}
+                placeholder="Votre nom"
+                placeholderTextColor={colors.textSecondary}
+              />
+              
+              <TouchableOpacity style={styles.saveButton} onPress={handleUpdateName} disabled={updating}>
+                {updating ? (
+                  <ActivityIndicator color="#FFF" size="small" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Enregistrer le nom</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Informations de compte</Text>
+              <Text style={styles.label}>Adresse Email</Text>
+              <Text style={styles.value}>{user?.email || 'Non renseigné'}</Text>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Session</Text>
+              <TouchableOpacity
+                style={styles.signOutButton}
+                onPress={handleSignOut}
+                disabled={signOutLoading}
+                activeOpacity={0.8}
+              >
+                {signOutLoading ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={styles.signOutButtonText}>Se déconnecter</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+
 
 
 

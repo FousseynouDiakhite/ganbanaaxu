@@ -1788,6 +1788,16 @@ const styles = StyleSheet.create({
 
 
 
+
+
+
+
+
+
+
+
+
+/*
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, ScrollView, Alert, Image } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -1797,7 +1807,7 @@ import * as DocumentPicker from 'expo-document-picker';
 // Nouveaux imports du SDK Expo
 import { useAudioRecorder, useAudioPlayer, AudioModule } from 'expo-audio';
 import { supabase } from '../lib/supabase'; // Vérifiez que le chemin correspond à votre configuration
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
 
 export interface MediaItem {
@@ -2010,6 +2020,361 @@ export default function Index({ isDark = false }) {
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
       
+      <View style={[styles.limitContainer, !canPublish && styles.limitContainerError]}>
+        <Ionicons name={canPublish ? "information-circle" : "warning"} size={24} color={canPublish ? "#007AFF" : "#FF3B30"} />
+        <Text style={[styles.limitText, !canPublish && styles.limitTextError]}>
+          Annonces publiées ce mois-ci : {postsThisMonth} / {MAX_POSTS_PER_MONTH}
+          {!canPublish && "\nVous avez atteint votre limite mensuelle."}
+        </Text>
+      </View>
+
+     
+      <View style={styles.grid}>
+        <TouchableOpacity style={[styles.bigButton, { backgroundColor: '#FF9500' }]} onPress={takeMedia} disabled={loading || !canPublish}>
+          <Ionicons name="camera" size={40} color="#FFF" />
+          <Text style={styles.bigButtonText}>Photo</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={[styles.bigButton, { backgroundColor: '#007AFF' }]} onPress={pickMedia} disabled={loading || !canPublish}>
+          <Ionicons name="images" size={40} color="#FFF" />
+          <Text style={styles.bigButtonText}>Galerie</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.bigButton, recorder.isRecording ? { backgroundColor: '#000' } : { backgroundColor: '#FF3B30' }]} 
+          onPress={recorder.isRecording ? stopRecording : startRecording} 
+          disabled={loading || !canPublish}
+        >
+          <Ionicons name={recorder.isRecording ? "stop-circle" : "mic"} size={40} color="#FFF" />
+          <Text style={styles.bigButtonText}>{recorder.isRecording ? "Arrêter" : "Parler"}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={[styles.bigButton, { backgroundColor: '#AF52DE' }]} onPress={pickAudioFile} disabled={loading || !canPublish}>
+          <Ionicons name="musical-notes" size={40} color="#FFF" />
+          <Text style={styles.bigButtonText}>Audio</Text>
+        </TouchableOpacity>
+      </View>
+
+      
+      <View style={styles.previewSection}>
+        {selectedMedia.length > 0 && (
+          <View style={styles.previewContainer}>
+            {selectedMedia.map((item, index) => (
+              <View key={index} style={styles.thumbnailWrapper}>
+                <Image source={{ uri: item.uri }} style={styles.thumbnail} />
+                <TouchableOpacity style={styles.removeBadge} onPress={() => removeMedia(index)}>
+                  <Ionicons name="close-circle" size={30} color="#FF3B30" />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {recordedAudioUri && (
+          <View style={styles.audioPreviewRow}>
+            <TouchableOpacity style={styles.btnPlayAudio} onPress={toggleAudioPreview}>
+              <Ionicons name={player?.playing ? "pause" : "play"} size={30} color="#FFF" />
+              <Text style={styles.btnPlayText}>Écouter</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={deleteAudio}>
+              <Ionicons name="trash" size={30} color="#FF3B30" />
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+
+      
+      <TouchableOpacity 
+        style={[styles.btnSendHuge, (loading || !canPublish) ? styles.disabledBtn : null]} 
+        onPress={handlePublishProcess} 
+        disabled={loading || !canPublish}
+      >
+        {loading ? (
+          <ActivityIndicator size="large" color="#FFF" />
+        ) : (
+          <>
+            <MaterialIcons name={canPublish ? "payment" : "block"} size={32} color="#FFF" />
+            <Text style={styles.btnSendHugeText}>
+              {canPublish ? "PAYER & ENVOYER" : "LIMITE ATTEINTE"}
+            </Text>
+          </>
+        )}
+      </TouchableOpacity>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { paddingBottom: 30, paddingHorizontal: 10, paddingTop: 20 },
+  limitContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E5F1FF', padding: 15, borderRadius: 12, marginBottom: 20, gap: 10 },
+  limitContainerError: { backgroundColor: '#FFE5E5' },
+  limitText: { color: '#007AFF', fontSize: 15, fontWeight: '600', flex: 1 },
+  limitTextError: { color: '#FF3B30' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 10, marginBottom: 20 },
+  bigButton: { width: '48%', aspectRatio: 1, borderRadius: 20, justifyContent: 'center', alignItems: 'center', elevation: 3, padding: 10 },
+  bigButtonText: { color: '#FFF', fontSize: 16, fontWeight: 'bold', marginTop: 10, textAlign: 'center' },
+  
+  previewSection: { marginBottom: 20, minHeight: 50 },
+  
+  previewContainer: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap', 
+    gap: 15,
+    marginTop: 10
+  },
+  thumbnailWrapper: { position: 'relative' },
+  thumbnail: { width: 80, height: 80, borderRadius: 12 },
+  removeBadge: { position: 'absolute', top: -8, right: -8, backgroundColor: '#FFF', borderRadius: 15 },
+
+  audioPreviewRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#E5E5EA', padding: 15, borderRadius: 15, marginTop: 10 },
+  btnPlayAudio: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#34C759', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10 },
+  btnPlayText: { color: '#FFF', fontWeight: 'bold', fontSize: 18 },
+  
+  btnSendHuge: { flexDirection: 'row', backgroundColor: '#BF5AF2', padding: 20, borderRadius: 20, justifyContent: 'center', alignItems: 'center', gap: 10, elevation: 5 },
+  btnSendHugeText: { color: '#FFF', fontWeight: '900', fontSize: 20, letterSpacing: 1 },
+  disabledBtn: { opacity: 0.5 },
+});
+
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, ScrollView, Alert, Image } from 'react-native';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import { useAudioRecorder, useAudioPlayer, AudioModule } from 'expo-audio';
+import { supabase } from '../lib/supabase';
+import * as FileSystem from 'expo-file-system/legacy';
+import { decode } from 'base64-arraybuffer';
+
+export interface MediaItem {
+  uri: string;
+  type?: 'image' | 'video' | string;
+}
+
+export default function Index({ isDark = false }) {
+  // --- ÉTATS ---
+  const [selectedMedia, setSelectedMedia] = useState<MediaItem[]>([]);
+  const [recordedAudioUri, setRecordedAudioUri] = useState<string | null>(null);
+  
+  // --- GESTION AUDIO (expo-audio) ---
+  const recorder = useAudioRecorder();
+  const player = useAudioPlayer(recordedAudioUri); 
+  
+  // Publication et Limites
+  const [loading, setLoading] = useState(false);
+  const [postsThisMonth, setPostsThisMonth] = useState(0); 
+  const MAX_POSTS_PER_MONTH = 5;
+  const canPublish = postsThisMonth < MAX_POSTS_PER_MONTH;
+
+  // --- RÉCUPÉRATION DU NOMBRE DE POSTS DU MOIS DEPUIS SUPABASE ---
+  useEffect(() => {
+    const fetchMonthlyPostCount = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).toISOString();
+
+        const { count, error } = await supabase
+          .from('posts')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .gte('created_at', startOfMonth)
+          .lte('created_at', endOfMonth);
+
+        if (error) {
+          console.error("Erreur lors du comptage des posts:", error.message);
+        } else {
+          setPostsThisMonth(count || 0);
+        }
+      } catch (err) {
+        console.log("Erreur inattendue lors de la récupération des posts:", err);
+      }
+    };
+
+    fetchMonthlyPostCount();
+  }, []);
+
+  // --- CAMÉRA (UNIQUEMENT PHOTO) ---
+  const takeMedia = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission', 'Accès à la caméra refusé.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'], // ✅ CORRECTION : 'images' au pluriel
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      const asset = result.assets[0];
+      setSelectedMedia(prev => [...prev, { uri: asset.uri, type: 'image' }]);
+    }
+  };
+
+  // --- SÉLECTION GALERIE (UNIQUEMENT PHOTO) ---
+  const pickMedia = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission', 'Accès à la galerie refusé.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'], // ✅ CORRECTION : 'images' au pluriel
+      allowsMultipleSelection: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      const newMedia = result.assets.map(asset => ({ uri: asset.uri, type: 'image' }));
+      setSelectedMedia(prev => [...prev, ...newMedia]);
+    }
+  };
+
+  const removeMedia = (index: number) => {
+    setSelectedMedia((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // --- SÉLECTION FICHIER AUDIO ---
+  const pickAudioFile = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ type: 'audio/*' });
+      if (!result.canceled && result.assets.length > 0) {
+        setRecordedAudioUri(result.assets[0].uri);
+      }
+    } catch (err) {
+      console.log('Erreur sélection audio', err);
+    }
+  };
+
+  // --- ENREGISTREMENT VOCAL (EXPO-AUDIO) ---
+  const startRecording = async () => {
+    try {
+      const permission = await AudioModule.requestRecordingPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission', 'Accès au micro refusé.');
+        return;
+      }
+      
+      await recorder.recordAsync();
+    } catch (err) {
+      console.error("Erreur lors de l'enregistrement:", err);
+    }
+  };
+
+  const stopRecording = async () => {
+    if (!recorder.isRecording) return;
+    
+    await recorder.stopAsync();
+    if (recorder.uri) {
+      setRecordedAudioUri(recorder.uri);
+    }
+  };
+
+  // --- LECTURE VOCAL (EXPO-AUDIO) ---
+  const toggleAudioPreview = () => {
+    if (!player) return;
+    
+    if (player.playing) {
+      player.pause();
+    } else {
+      player.play();
+    }
+  };
+
+  const deleteAudio = () => {
+    if (player) {
+      player.pause();
+    }
+    setRecordedAudioUri(null);
+  };
+
+  // --- FONCTION D'UPLOAD UNIFIÉE ---
+  const uploadFileToSupabase = async (uri: string, folder: string): Promise<string> => {
+    const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+    const arrayBuffer = decode(base64);
+    const fileExt = uri.split('.').pop()?.split('?')[0] || 'bin';
+    
+    let mimeType = folder === 'medias' ? 'image/jpeg' : 'audio/m4a'; 
+    const fileName = `${folder}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+    const { error } = await supabase.storage
+      .from('ganbanaaxu-media') 
+      .upload(fileName, arrayBuffer, { contentType: mimeType, upsert: false });
+    
+    if (error) throw new Error(`Erreur Storage: ${error.message}`);
+    
+    const { data } = supabase.storage.from('ganbanaaxu-media').getPublicUrl(fileName);
+    return data.publicUrl;
+  };
+
+  // --- PROCESSUS DE PUBLICATION ---
+  const handlePublishProcess = async () => {
+    if (selectedMedia.length === 0 && !recordedAudioUri) {
+      Alert.alert("Rien à envoyer", "Ajoutez une photo ou un vocal.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Vous devez être connecté.");
+
+      const uploadedMediaUrls = await Promise.all(selectedMedia.map(item => uploadFileToSupabase(item.uri, 'medias')));
+      let uploadedAudioUrl = recordedAudioUri ? await uploadFileToSupabase(recordedAudioUri, 'audios') : null;
+
+      const { error } = await supabase.from('posts').insert([
+        {
+          user_id: user.id,
+          media_urls: uploadedMediaUrls,
+          audio_url: uploadedAudioUrl,
+          caption: "Annonce sponsorisée", 
+        }
+      ]);
+
+      if (error) throw error;
+
+      Alert.alert("Succès !", "Votre annonce a été envoyée avec succès.");
+      
+      setSelectedMedia([]);
+      deleteAudio();
+      setPostsThisMonth(prev => prev + 1);
+
+    } catch (error: any) {
+      Alert.alert("Erreur de publication", error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      
       {/* BANNIÈRE DE LIMITE */}
       <View style={[styles.limitContainer, !canPublish && styles.limitContainerError]}>
         <Ionicons name={canPublish ? "information-circle" : "warning"} size={24} color={canPublish ? "#007AFF" : "#FF3B30"} />
@@ -2125,11 +2490,3 @@ const styles = StyleSheet.create({
   btnSendHugeText: { color: '#FFF', fontWeight: '900', fontSize: 20, letterSpacing: 1 },
   disabledBtn: { opacity: 0.5 },
 });
-
-
-
-
-
-
-
-

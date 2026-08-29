@@ -3034,7 +3034,7 @@ import {
   RecordingPresets, 
   setAudioModeAsync 
 } from 'expo-audio';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { Video as VideoCompressor } from 'react-native-compressor';
