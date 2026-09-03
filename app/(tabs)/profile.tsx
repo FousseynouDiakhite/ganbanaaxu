@@ -13344,7 +13344,7 @@ export default function Profile() {
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Session</Text>
+              
               <TouchableOpacity
                 style={styles.signOutButton}
                 onPress={handleSignOut}
