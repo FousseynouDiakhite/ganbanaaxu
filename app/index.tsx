@@ -7551,7 +7551,7 @@ export default function Index() {
 
 
 
-
+/*
 // ⚠️ Note : Déplacez idéalement ces deux lignes dans app/_layout.tsx
 import 'react-native-get-random-values';
 if (typeof WeakRef === 'undefined') {
@@ -7934,7 +7934,455 @@ export default function Index() {
   );
 }
 
+*/
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ⚠️ Note : Déplacez idéalement ces deux lignes dans app/_layout.tsx
+import 'react-native-get-random-values';
+if (typeof WeakRef === 'undefined') {
+  (global as any).WeakRef = class WeakRef<T extends object> {
+    private target: T | null = null;
+    constructor(target: T) { this.target = target; }
+    deref(): T | undefined { return this.target || undefined; }
+  };
+}
+
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import {
+  SafeAreaView,
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  ActivityIndicator,
+  TouchableOpacity,
+  ScrollView,
+  useColorScheme,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  StatusBar,
+} from 'react-native';
+import { useRouter, useRootNavigationState } from 'expo-router';
+import { supabase } from '../lib/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // AJOUT IMPORTANT
+
+// ========== THEME ==========
+const getThemeColors = (isDark: boolean) => ({
+  background: isDark ? '#121212' : '#f8f9fa',
+  text: isDark ? '#FFFFFF' : '#1A202C',
+  textSecondary: isDark ? '#AAA' : '#666',
+  primary: isDark ? '#BB86FC' : '#6200EE',
+  inputBackground: isDark ? '#1A1A1A' : '#FFF',
+  inputBorder: isDark ? '#2D2D2D' : '#E2E8F0',
+  inputFocusBorder: isDark ? '#BB86FC' : '#6200EE',
+  errorBackground: isDark ? '#D32F2F20' : '#FFEBEE',
+  errorText: isDark ? '#ff6b6b' : '#D32F2F',
+  errorBorder: isDark ? '#D32F2F40' : '#FFCDD2',
+});
+
+// Regex basique pour la validation d'email
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export default function Index() {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const colors = useMemo(() => getThemeColors(isDark), [isDark]);
+  const router = useRouter();
+  const rootNavigationState = useRootNavigationState();
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSignUpMode, setIsSignUpMode] = useState(false);
+  const [secureTextEntry, setSecureTextEntry] = useState(true);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [isEmailFocused, setIsEmailFocused] = useState(false);
+  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
+
+  // Mémorisation des styles
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    keyboardAvoid: { flex: 1 },
+    scrollContent: { flexGrow: 1, padding: 24, justifyContent: 'center' },
+    header: { alignItems: 'center', marginBottom: 36 },
+    headerTitle: {
+      fontSize: 34,
+      fontWeight: 'bold',
+      color: colors.primary,
+      letterSpacing: 0.5
+    },
+    headerSubtitle: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginTop: 8,
+      paddingHorizontal: 10,
+      lineHeight: 20
+    },
+    formSection: { width: '100%' },
+    inputContainer: {
+      flexDirection: 'row',
+      width: '100%',
+      height: 50,
+      borderWidth: 1.5,
+      borderColor: colors.inputBorder,
+      borderRadius: 12,
+      marginBottom: 16,
+      backgroundColor: colors.inputBackground,
+      alignItems: 'center',
+      overflow: 'hidden'
+    },
+    inputFocused: { borderColor: colors.inputFocusBorder },
+    textInput: {
+      flex: 1,
+      height: '100%',
+      paddingHorizontal: 16,
+      color: colors.text,
+      fontSize: 15
+    },
+    eyeButton: {
+      paddingHorizontal: 16,
+      height: '100%',
+      justifyContent: 'center',
+      alignItems: 'center'
+    },
+    eyeText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.primary
+    },
+    authButton: {
+      backgroundColor: colors.primary,
+      padding: 15,
+      borderRadius: 12,
+      alignItems: 'center',
+      marginTop: 12,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 6,
+      elevation: 2
+    },
+    authButtonText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
+    switchModeContainer: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      marginTop: 24,
+      alignItems: 'center'
+    },
+    switchModeText: {
+      color: colors.textSecondary,
+      marginRight: 6,
+      fontSize: 14
+    },
+    switchModeButton: {
+      color: colors.primary,
+      fontWeight: '700',
+      fontSize: 14
+    },
+    errorContainer: {
+      backgroundColor: colors.errorBackground,
+      padding: 12,
+      borderRadius: 10,
+      marginBottom: 18,
+      borderWidth: 1,
+      borderColor: colors.errorBorder
+    },
+    errorText: {
+      color: colors.errorText,
+      textAlign: 'center',
+      fontWeight: '500',
+      fontSize: 13
+    },
+  }), [colors]);
+
+  // LE NOUVEAU USE-EFFECT QUI GÈRE LE HORS LIGNE
+  useEffect(() => {
+    if (!rootNavigationState?.key) return;
+
+    let isMounted = true;
+
+    const checkSessionOfflineFriendly = async () => {
+      try {
+        // Course entre la requête Supabase et un minuteur de 2 secondes
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('TIMEOUT')), 2000)
+        );
+
+        // On attend que l'un des deux termine en premier
+        const response = await Promise.race([sessionPromise, timeoutPromise]) as any;
+        
+        if (!isMounted) return;
+
+        if (response?.data?.session) {
+          router.replace('/(tabs)');
+        } else {
+          setLoading(false);
+        }
+      } catch (error: any) {
+        // Si erreur réseau OU timeout atteint (mode offline détecté)
+        if (!isMounted) return;
+
+        try {
+          // On force la lecture directe dans AsyncStorage
+          // ATTENTION: Assurez-vous que l'ID correspond bien à votre URL Supabase
+          const localData = await AsyncStorage.getItem('sb-tuciyiawyawrhifpjmmn-auth-token');
+          
+          if (localData) {
+            const parsedSession = JSON.parse(localData);
+            if (parsedSession?.access_token) {
+              console.log("Session locale trouvée, accès accordé (Mode Offline)");
+              router.replace('/(tabs)');
+            } else {
+              setLoading(false);
+            }
+          } else {
+            setLoading(false);
+          }
+        } catch (cacheError) {
+          console.log("Erreur de lecture du cache:", cacheError);
+          setLoading(false);
+        }
+      }
+    };
+
+    checkSessionOfflineFriendly();
+
+    // On garde le listener pour les changements d'état futurs (connexion/déconnexion)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!isMounted) return;
+        if (event === 'SIGNED_IN' && session) {
+          router.replace('/(tabs)');
+        } else if (!session) {
+          // On évite de forcer setLoading(false) ici immédiatement lors de l'initialisation
+          // car checkSessionOfflineFriendly s'en charge avec le fallback.
+        }
+      }
+    );
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [rootNavigationState?.key, router]);
+
+  const handleAuth = useCallback(async () => {
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail || !password) {
+      setError('Veuillez remplir tous les champs.');
+      return;
+    }
+
+    if (!EMAIL_REGEX.test(trimmedEmail)) {
+      setError('Veuillez entrer une adresse email valide.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Le mot de passe doit contenir au moins 6 caractères.');
+      return;
+    }
+
+    setError('');
+    setLoading(true);
+
+    try {
+      if (isSignUpMode) {
+        const { error: signUpError } = await supabase.auth.signUp({
+          email: trimmedEmail,
+          password,
+        });
+        if (signUpError) throw signUpError;
+
+        Alert.alert(
+          'Succès !',
+          'Compte créé avec succès ! Connectez-vous à présent.',
+          [{ text: 'OK', onPress: () => setIsSignUpMode(false) }]
+        );
+        setPassword('');
+        setLoading(false);
+      } else {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: trimmedEmail,
+          password,
+        });
+        if (signInError) throw signInError;
+        
+        // Pas besoin de router.replace ici car le listener onAuthStateChange s'en charge
+      }
+    } catch (err: any) {
+      let errorMessage = 'Une erreur est survenue.';
+      
+      if (err.message?.toLowerCase().includes('invalid login credentials')) {
+        errorMessage = 'Email ou mot de passe incorrect. (Ou vous n\'avez pas de compte)';
+      } else if (err.message?.includes('already been registered')) {
+        errorMessage = 'Cet email est déjà utilisé.';
+      } else if (err.message?.includes('weak password')) {
+        errorMessage = 'Le mot de passe est trop faible (min 6 caractères).';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
+      setLoading(false);
+    }
+  }, [email, password, isSignUpMode]);
+
+  const toggleMode = useCallback(() => {
+    setError('');
+    setIsSignUpMode((prev) => !prev);
+    setPassword('');
+  }, []);
+
+  if (!rootNavigationState?.key || loading) {
+    return (
+      <>
+        <StatusBar
+          barStyle={isDark ? 'light-content' : 'dark-content'}
+          backgroundColor={colors.background}
+          translucent={Platform.OS === 'android'}
+        />
+        <View style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: colors.background
+        }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={{ color: colors.text, marginTop: 10 }}>Chargement...</Text>
+        </View>
+      </>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoid}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Ganbanaaxu</Text>
+            <Text style={styles.headerSubtitle}>
+              {isSignUpMode ? 'Créez votre compte pour commencer' : 'Bienvenue ! Connectez-vous à votre compte'}
+            </Text>
+          </View>
+
+          {error ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
+
+          <View style={styles.formSection}>
+            <View style={[styles.inputContainer, isEmailFocused && styles.inputFocused]}>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Adresse email"
+                placeholderTextColor={colors.textSecondary}
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                editable={!loading}
+                onFocus={() => setIsEmailFocused(true)}
+                onBlur={() => setIsEmailFocused(false)}
+              />
+            </View>
+
+            <View style={[styles.inputContainer, isPasswordFocused && styles.inputFocused]}>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Mot de passe"
+                placeholderTextColor={colors.textSecondary}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={secureTextEntry}
+                editable={!loading}
+                autoCapitalize="none"
+                onFocus={() => setIsPasswordFocused(true)}
+                onBlur={() => setIsPasswordFocused(false)}
+              />
+              <TouchableOpacity
+                style={styles.eyeButton}
+                onPress={() => setSecureTextEntry(!secureTextEntry)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.eyeText}>
+                  {secureTextEntry ? 'Afficher' : 'Masquer'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={styles.authButton}
+              onPress={handleAuth}
+              disabled={loading}
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <Text style={styles.authButtonText}>
+                  {isSignUpMode ? "Créer mon compte" : "Se connecter"}
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.switchModeContainer}>
+              <Text style={styles.switchModeText}>
+                {isSignUpMode ? 'Déjà un compte ?' : 'Pas encore de compte ?'}
+              </Text>
+              <TouchableOpacity onPress={toggleMode} disabled={loading}>
+                <Text style={styles.switchModeButton}>
+                  {isSignUpMode ? 'Se connecter' : "S'inscrire"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
 
 
 
