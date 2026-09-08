@@ -14405,7 +14405,7 @@ export default function Profile() {
       }
     }
   };
-
+/*
   const handleSignOut = async () => {
     Alert.alert(
       'Déconnexion',
@@ -14433,7 +14433,52 @@ export default function Profile() {
       ]
     );
   };
+*/
 
+
+
+
+
+
+const handleSignOut = async () => {
+    Alert.alert(
+      'Déconnexion',
+      'Êtes-vous sûr de vouloir vous déconnecter ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Déconnexion',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setSignOutLoading(true);
+              
+              // Suppression des clés du cache local
+              await AsyncStorage.removeItem('@is_logged_in'); // Ajouté ici
+              await AsyncStorage.removeItem('@profile_data');
+              if (user) await AsyncStorage.removeItem(`@my_posts_${user.id}`);
+
+              // Déconnexion de Supabase
+              const { error: signOutError } = await supabase.auth.signOut();
+              if (signOutError) throw signOutError;
+              
+              // Redirection
+              router.replace('/');
+            } catch (err: any) {
+              Alert.alert('Erreur', err.message || 'Impossible de se déconnecter.');
+              setSignOutLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+
+
+
+
+  
   const styles = useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     scrollContent: { flexGrow: 1, padding: 24 },

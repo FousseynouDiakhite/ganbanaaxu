@@ -198,7 +198,7 @@ export default {
   expo: {
     name: "Ganbanaaxu",
     slug: "Ganbanaaxu",
-    version: "1.0.11",
+    version: "1.0.12",
     orientation: "portrait",
     icon: "./assets/images/logoLiberty.png",
     scheme: "ganbanaaxu",
@@ -210,7 +210,7 @@ export default {
     android: {
       package: "com.godapps.Ganbanaaxu",
       googleServicesFile: "./google-services.json",
-      versionCode: 60,
+      versionCode: 61,
       usesCleartextTraffic: true,
       adaptiveIcon: {
         foregroundImage: "./assets/images/logoLiberty.png",
@@ -281,3 +281,13 @@ export default {
     owner: "godapps",
   },
 };
+
+
+
+
+/*
+
+git add .
+git commit -m "un nouveau build de release" 
+git push origin main
+*/
