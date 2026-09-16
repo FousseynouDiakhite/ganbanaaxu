@@ -94,7 +94,7 @@ export default function RootLayout() {
 
 
 
-
+/*
 // Polyfill WeakRef
 if (typeof WeakRef === 'undefined') {
   (global as any).WeakRef = class WeakRef<T extends object> {
@@ -139,7 +139,82 @@ export default function RootLayout() {
     </Stack>
   );
 }
+*/
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Polyfill WeakRef
+if (typeof WeakRef === 'undefined') {
+  (global as any).WeakRef = class WeakRef<T extends object> {
+    private target: T | null = null;
+    constructor(target: T) { this.target = target; }
+    deref(): T | undefined { return this.target || undefined; }
+  };
+}
+
+import 'react-native-url-polyfill/auto';
+import 'react-native-get-random-values';
+import { useEffect } from 'react';
+import { Stack } from "expo-router";
+import * as SplashScreen from 'expo-splash-screen';
+import { useFonts } from 'expo-font';
+import { Ionicons } from '@expo/vector-icons';
+
+// 1. IMPORTATION DU SDK ADMOB
+import mobileAds from 'react-native-google-mobile-ads';
+
+// ⚡ EMPÊCHER LE MASQUAGE AUTOMATIQUE DU SPLASH SCREEN
+SplashScreen.preventAutoHideAsync();
+
+export default function RootLayout() {
+  // ⚡ CHARGEMENT DES POLICES D'ICÔNES AVANT L'AFFICHAGE
+  const [loaded, error] = useFonts({
+    ...Ionicons.font,
+  });
+
+  useEffect(() => {
+    // 2. INITIALISATION D'ADMOB AU DEMARRAGE
+    mobileAds()
+      .initialize()
+      .then(adapterStatuses => {
+        console.log('AdMob initialisé avec succès !');
+      })
+      .catch(err => {
+        console.error('Erreur lors de l\'initialisation d\'AdMob:', err);
+      });
+
+    // ⚡ MASQUER LE SPLASH SCREEN SEULEMENT QUAND LES ICÔNES SONT PRÊTES
+    if (loaded || error) {
+      SplashScreen.hideAsync();
+    }
+  }, [loaded, error]);
+
+  // Empêche l'affichage de l'application tant que les icônes ne sont pas chargées
+  if (!loaded && !error) {
+    return null;
+  }
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="index" />
+      <Stack.Screen name="(tabs)" />
+    </Stack>
+  );
+}
 
 
 
