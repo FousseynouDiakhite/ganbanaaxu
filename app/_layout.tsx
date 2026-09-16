@@ -152,11 +152,6 @@ export default function RootLayout() {
 
 
 
-
-
-
-
-
 // Polyfill WeakRef
 if (typeof WeakRef === 'undefined') {
   (global as any).WeakRef = class WeakRef<T extends object> {
@@ -178,7 +173,10 @@ import { Ionicons } from '@expo/vector-icons';
 import mobileAds from 'react-native-google-mobile-ads';
 
 // ⚡ EMPÊCHER LE MASQUAGE AUTOMATIQUE DU SPLASH SCREEN
-SplashScreen.preventAutoHideAsync();
+// Le .catch() évite les avertissements si la fonction est appelée plusieurs fois (ex: Fast Refresh)
+SplashScreen.preventAutoHideAsync().catch(() => {
+  // Ignorer l'erreur silencieusement
+});
 
 export default function RootLayout() {
   // ⚡ CHARGEMENT DES POLICES D'ICÔNES AVANT L'AFFICHAGE
@@ -186,18 +184,20 @@ export default function RootLayout() {
     ...Ionicons.font,
   });
 
+  // 2. INITIALISATION D'ADMOB AU MONTAGE
   useEffect(() => {
-    // 2. INITIALISATION D'ADMOB AU DEMARRAGE
     mobileAds()
       .initialize()
       .then(adapterStatuses => {
-        console.log('AdMob initialisé avec succès !');
+        console.log('AdMob initialisé avec succès !', adapterStatuses);
       })
       .catch(err => {
         console.error('Erreur lors de l\'initialisation d\'AdMob:', err);
       });
+  }, []); // Dépendance vide pour ne l'exécuter qu'une seule fois
 
-    // ⚡ MASQUER LE SPLASH SCREEN SEULEMENT QUAND LES ICÔNES SONT PRÊTES
+  // ⚡ MASQUER LE SPLASH SCREEN SEULEMENT QUAND LES ICÔNES SONT PRÊTES
+  useEffect(() => {
     if (loaded || error) {
       SplashScreen.hideAsync();
     }
@@ -207,6 +207,7 @@ export default function RootLayout() {
   if (!loaded && !error) {
     return null;
   }
+
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
@@ -214,7 +215,3 @@ export default function RootLayout() {
     </Stack>
   );
 }
-
-
-
-

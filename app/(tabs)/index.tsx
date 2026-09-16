@@ -5557,25 +5557,6 @@ export default function FeedScreen() {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { 
   View, 
@@ -5611,9 +5592,19 @@ import { VideoView, useVideoPlayer } from 'expo-video';
 // IMPORT POUR LE CACHE HORS-LIGNE DES IMAGES
 import { Image } from 'expo-image';
 
+// IMPORT POUR LA PUBLICITÉ ADMOB
+import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
+
 import { supabase } from '../../lib/supabase'; 
 
 const { width, height } = Dimensions.get('window');
+
+// Identifiants publicitaires (Test en développement, Vrais IDs en production)
+const adUnitId = __DEV__ 
+  ? TestIds.BANNER 
+  : Platform.OS === 'ios' 
+    ? 'ca-app-pub-xxxxxxxxxxxxxxxx/yyyyyyyyyy' // Remplacer par votre vrai ID iOS
+    : 'ca-app-pub-xxxxxxxxxxxxxxxx/zzzzzzzzzz'; // Remplacer par votre vrai ID Android
 
 // Configuration du comportement des notifications quand l'app est ouverte
 Notifications.setNotificationHandler({
@@ -5635,36 +5626,12 @@ const getFeedStyles = (colorScheme: any) => {
     header: { paddingHorizontal: 16, paddingVertical: 15, backgroundColor: isDark ? '#1E1E1E' : '#FFF', borderBottomWidth: 0.5, borderColor: isDark ? '#2A2A2A' : '#EFEFEF', flexDirection: 'row', alignItems: 'center' },
     logoText: { fontSize: 24, fontWeight: 'bold', color: 'indigo', letterSpacing: 0.5 },
     
-    // Nouveaux styles pour la bannière de publicité de test
-    adBannerContainer: {
-      backgroundColor: isDark ? '#252525' : '#E8EAF6',
-      paddingVertical: 10,
-      paddingHorizontal: 16,
-      marginHorizontal: 10,
-      marginTop: 10,
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: isDark ? '#3D3D3D' : '#C5CAE9',
-      borderStyle: 'dashed',
+    // Conteneur pour centrer la publicité
+    adContainer: {
       alignItems: 'center',
       justifyContent: 'center',
-    },
-    adBadge: {
-      fontSize: 10,
-      fontWeight: 'bold',
-      color: '#6200EE',
-      backgroundColor: isDark ? '#332050' : '#E0E0FF',
-      paddingHorizontal: 8,
-      paddingVertical: 2,
-      borderRadius: 4,
-      marginBottom: 4,
-      textTransform: 'uppercase',
-    },
-    adText: {
-      fontSize: 12,
-      color: isDark ? '#AAA' : '#555',
-      textAlign: 'center',
-      fontWeight: '500',
+      marginVertical: 10,
+      width: '100%',
     },
 
     emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100, paddingHorizontal: 20 },
@@ -6164,7 +6131,6 @@ export default function FeedScreen() {
     });
   }, []);
 
-  // Le composant vide affiche maintenant un spinner de chargement si c'est en cours
   const ListEmptyComponent = () => (
     <View style={styles.emptyContainer}>
       {loading ? (
@@ -6187,13 +6153,18 @@ export default function FeedScreen() {
           <Text style={styles.logoText}>Ganbanaaxu</Text>
         </View>
 
-        {/* PUBLICITÉ DE TEST PLACÉE JUSTE SOUS LE TITRE GANBANAAXU */}
-        <View style={styles.adBannerContainer}>
-          <Text style={styles.adBadge}>Publicité de test</Text>
-          <Text style={styles.adText}>Espace réservé pour votre bannière publicitaire (ex: AdMob Banner)</Text>
+        {/* BANNÈRE PUBLICITAIRE ADMOB */}
+        <View style={styles.adContainer}>
+          <BannerAd
+            unitId={adUnitId}
+            size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
+            requestOptions={{
+              requestNonPersonalizedAdsOnly: true,
+            }}
+          />
         </View>
         
-        {/* FlashList remplace FlatList pour une fluidité à 60 FPS */}
+        {/* FlashList */}
         <FlashList
           data={posts}
           keyExtractor={(item) => item.id?.toString() || Math.random().toString()}
@@ -6206,7 +6177,7 @@ export default function FeedScreen() {
               onDeleteSuccess={removePostFromList} 
             />
           )}
-          estimatedItemSize={500} // ESSENTIEL pour FlashList : la taille moyenne d'une carte
+          estimatedItemSize={500}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingTop: 10, paddingBottom: 20 }}
           ListEmptyComponent={ListEmptyComponent}
@@ -6223,6 +6194,25 @@ export default function FeedScreen() {
     </SafeAreaView>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
