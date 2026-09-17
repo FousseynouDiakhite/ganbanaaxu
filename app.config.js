@@ -305,7 +305,6 @@ export default {
 
 
 
-
 /*
 export default {
   expo: {
@@ -348,7 +347,7 @@ export default {
         "expo-build-properties",
         {
           "android": {
-            "kotlinVersion": "2.3.0"
+            "kotlinVersion": "2.1.20"
           }
         },
         "expo-splash-screen",
@@ -407,6 +406,7 @@ export default {
     owner: "godapps",
   },
 };
+
 */
 
 
@@ -427,46 +427,6 @@ export default {
 
 
 
-
-
-
-
-const { withAndroidManifest, withInfoPlist } = require('@expo/config-plugins');
-
-// Plugin personnalisé pour configurer Google Mobile Ads
-function withGoogleMobileAds(config, { androidAppId, iosAppId }) {
-  // Configuration Android (AndroidManifest.xml)
-  config = withAndroidManifest(config, (config) => {
-    const mainApplication = config.modResults.manifest.application[0];
-    if (mainApplication) {
-      if (!mainApplication['meta-data']) {
-        mainApplication['meta-data'] = [];
-      }
-      const existingMeta = mainApplication['meta-data'].find(
-        (item) => item.$ && item.$['android:name'] === 'com.google.android.gms.ads.APPLICATION_ID'
-      );
-      if (existingMeta) {
-        existingMeta.$['android:value'] = androidAppId;
-      } else {
-        mainApplication['meta-data'].push({
-          $: {
-            'android:name': 'com.google.android.gms.ads.APPLICATION_ID',
-            'android:value': androidAppId,
-          },
-        });
-      }
-    }
-    return config;
-  });
-
-  // Configuration iOS (Info.plist)
-  config = withInfoPlist(config, (config) => {
-    config.modResults.GADApplicationIdentifier = iosAppId;
-    return config;
-  });
-
-  return config;
-}
 
 export default {
   expo: {
@@ -529,10 +489,10 @@ export default {
       ],
       "react-native-compressor",
       [
-        withGoogleMobileAds, // <-- Utilisation du plugin personnalisé
+        "react-native-google-mobile-ads",
         {
           androidAppId: "ca-app-pub-3940256099942544~3347511713",
-          iosAppId: "ca-app-pub-3940256099942544~1458002511",
+          iosAppId: "ca-app-pub-3940256099942544~1458002511"
         }
       ],
       [
@@ -568,6 +528,21 @@ export default {
     owner: "godapps"
   }
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
