@@ -417,6 +417,57 @@ export default {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const { withAndroidManifest, withInfoPlist } = require('@expo/config-plugins');
+
+// Plugin personnalisé pour configurer Google Mobile Ads
+function withGoogleMobileAds(config, { androidAppId, iosAppId }) {
+  // Configuration Android (AndroidManifest.xml)
+  config = withAndroidManifest(config, (config) => {
+    const mainApplication = config.modResults.manifest.application[0];
+    if (mainApplication) {
+      if (!mainApplication['meta-data']) {
+        mainApplication['meta-data'] = [];
+      }
+      const existingMeta = mainApplication['meta-data'].find(
+        (item) => item.$ && item.$['android:name'] === 'com.google.android.gms.ads.APPLICATION_ID'
+      );
+      if (existingMeta) {
+        existingMeta.$['android:value'] = androidAppId;
+      } else {
+        mainApplication['meta-data'].push({
+          $: {
+            'android:name': 'com.google.android.gms.ads.APPLICATION_ID',
+            'android:value': androidAppId,
+          },
+        });
+      }
+    }
+    return config;
+  });
+
+  // Configuration iOS (Info.plist)
+  config = withInfoPlist(config, (config) => {
+    config.modResults.GADApplicationIdentifier = iosAppId;
+    return config;
+  });
+
+  return config;
+}
+
 export default {
   expo: {
     name: "Ganbanaaxu",
@@ -478,11 +529,10 @@ export default {
       ],
       "react-native-compressor",
       [
-        "react-native-google-mobile-ads",
+        withGoogleMobileAds, // <-- Utilisation du plugin personnalisé
         {
           androidAppId: "ca-app-pub-3940256099942544~3347511713",
           iosAppId: "ca-app-pub-3940256099942544~1458002511",
-          playServicesAdsVersion: "23.6.0" // <-- Force proprement la version compatible avec Kotlin 2.1.20
         }
       ],
       [
