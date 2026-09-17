@@ -458,10 +458,6 @@ export default {
         {
           android: {
             kotlinVersion: "2.3.0",
-            extraBuildProperties: {
-        "playServicesAdsVersion": "23.6.0"
-      }
-          }
         }
       ],
       [
@@ -483,7 +479,9 @@ export default {
         "react-native-google-mobile-ads",
         {
           androidAppId: "ca-app-pub-3940256099942544~3347511713",
-          iosAppId: "ca-app-pub-3940256099942544~1458002511"
+          iosAppId: "ca-app-pub-3940256099942544~1458002511",
+          playServicesAdsVersion: "23.6.0"
+      }
         }
       ],
       [
