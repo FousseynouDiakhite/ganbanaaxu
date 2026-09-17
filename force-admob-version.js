@@ -9,7 +9,6 @@ configurations.all {
         force 'com.google.android.gms:play-services-ads:23.6.0'
         force 'com.google.android.gms:play-services-ads-lite:23.6.0'
         force 'com.google.android.gms:play-services-ads-base:23.6.0'
-        force 'com.google.android.gms:play-services-ads-identifier:23.6.0'
     }
 }
 `;
