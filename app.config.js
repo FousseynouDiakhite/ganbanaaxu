@@ -363,8 +363,8 @@ export default {
         "react-native-google-mobile-ads",
         {
           // 👇 REMPLACEZ CECI PAR L'ID AVEC LE TILDE (~)
-          "androidAppId": "ca-app-pub-2071663229767228/8501336070", 
-          /*"iosAppId": "ca-app-pub-2071663229767228~YYYYYYYYYY"*/
+          "androidAppId": "ca-app-pub-2071663229767228/8501336070",
+          "iosAppId": "ca-app-pub-3940256099942544~1458002511"
         }
       ],
       [
