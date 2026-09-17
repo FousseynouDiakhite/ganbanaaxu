@@ -417,10 +417,6 @@ export default {
 
 
 
-
-
-
-
 export default {
   expo: {
     name: "Ganbanaaxu",
@@ -485,8 +481,7 @@ export default {
         "react-native-google-mobile-ads",
         {
           androidAppId: "ca-app-pub-3940256099942544~3347511713",
-          iosAppId: "ca-app-pub-3940256099942544~1458002511",
-          playServicesAdsVersion: "23.6.0"
+          iosAppId: "ca-app-pub-3940256099942544~1458002511"
         }
       ],
       [
@@ -512,7 +507,8 @@ export default {
       "expo-image",
       "expo-sharing",
       "expo-status-bar",
-      "expo-web-browser"
+      "expo-web-browser",
+      "./force-admob-version.js" // <-- Notre plugin personnalisé ici
     ],
     extra: {
       supabaseUrl: "https://tuciyiawyawrhifpjmmn.supabase.co",
@@ -522,7 +518,6 @@ export default {
     owner: "godapps"
   }
 };
-
 
 
 
