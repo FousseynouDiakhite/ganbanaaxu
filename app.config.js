@@ -425,9 +425,6 @@ export default {
 
 
 
-
-
-
 export default {
   expo: {
     name: "Ganbanaaxu",
@@ -483,18 +480,12 @@ export default {
           enableFullScreenImage_experimental: true,
           dark: {
             image: "./assets/images/logoLiberty.png",
-            backgroundColor: "#000000"
-          }
+            backgroundColor: "#000000",
+          },
         }
       ],
       "react-native-compressor",
-      [
-        "react-native-google-mobile-ads",
-        {
-          androidAppId: "ca-app-pub-3940256099942544~3347511713",
-          iosAppId: "ca-app-pub-3940256099942544~1458002511"
-        }
-      ],
+      // ❌ SUPPRIMÉ : "react-native-google-mobile-ads" n'a rien à faire ici
       [
         "expo-audio",
         {
@@ -523,13 +514,11 @@ export default {
     extra: {
       supabaseUrl: "https://tuciyiawyawrhifpjmmn.supabase.co",
       supabaseAnonKey: "sb_publishable_HnPHoEeulclLH-AIHOhS-w_y9j6oZo1",
-      eas: { projectId: "1dc64a7e-56a9-4a5a-9edb-25443f39a2f0" }
+      eas: { projectId: "1dc64a7e-56a9-4a5a-9edb-25443f39a2f0" },
     },
-    owner: "godapps"
-  }
+    owner: "godapps",
+  },
 };
-
-
 
 
 
