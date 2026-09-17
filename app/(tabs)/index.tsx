@@ -5557,6 +5557,11 @@ export default function FeedScreen() {
 
 
 
+
+
+
+
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { 
   View, 
@@ -5582,31 +5587,23 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 
-// NOUVEL IMPORT POUR LA FLUIDITÉ ABSOLUE
+// IMPORTS EXTERNES
 import { FlashList } from '@shopify/flash-list';
-
-// NOUVEAUX IMPORTS EXPO SDK 52
 import { useAudioPlayer } from 'expo-audio';
 import { VideoView, useVideoPlayer } from 'expo-video';
-
-// IMPORT POUR LE CACHE HORS-LIGNE DES IMAGES
 import { Image } from 'expo-image';
-
-// IMPORT POUR LA PUBLICITÉ ADMOB
 import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
 
 import { supabase } from '../../lib/supabase'; 
 
 const { width, height } = Dimensions.get('window');
 
-// Identifiants publicitaires (Test en développement, Vrais IDs en production)
 const adUnitId = __DEV__ 
   ? TestIds.BANNER 
   : Platform.OS === 'ios' 
-    ? 'ca-app-pub-xxxxxxxxxxxxxxxx/yyyyyyyyyy' // Remplacer par votre vrai ID iOS
-    : 'ca-app-pub-xxxxxxxxxxxxxxxx/zzzzzzzzzz'; // Remplacer par votre vrai ID Android
+    ? 'ca-app-pub-xxxxxxxxxxxxxxxx/yyyyyyyyyy'
+    : 'ca-app-pub-xxxxxxxxxxxxxxxx/zzzzzzzzzz';
 
-// Configuration du comportement des notifications quand l'app est ouverte
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -5625,15 +5622,7 @@ const getFeedStyles = (colorScheme: any) => {
     container: { flex: 1, backgroundColor: isDark ? '#121212' : '#f0f2f5' },
     header: { paddingHorizontal: 16, paddingVertical: 15, backgroundColor: isDark ? '#1E1E1E' : '#FFF', borderBottomWidth: 0.5, borderColor: isDark ? '#2A2A2A' : '#EFEFEF', flexDirection: 'row', alignItems: 'center' },
     logoText: { fontSize: 24, fontWeight: 'bold', color: 'indigo', letterSpacing: 0.5 },
-    
-    // Conteneur pour centrer la publicité
-    adContainer: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginVertical: 10,
-      width: '100%',
-    },
-
+    adContainer: { alignItems: 'center', justifyContent: 'center', marginVertical: 10, width: '100%' },
     emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100, paddingHorizontal: 20 },
     emptyText: { fontSize: 16, color: isDark ? '#888' : '#666', textAlign: 'center', marginTop: 10 },
     card: { backgroundColor: isDark ? '#1E1E1E' : '#FFF', marginBottom: 12, borderRadius: 12, paddingVertical: 12, marginHorizontal: 10, elevation: 2 },
@@ -5660,7 +5649,6 @@ const getFeedStyles = (colorScheme: any) => {
     audioText: { fontSize: 13, fontWeight: '600', color: isDark ? '#FFF' : '#333' },
     progressContainer: { width: '100%', height: 4, backgroundColor: isDark ? '#444' : '#DDD', borderRadius: 2 },
     progressBar: { height: '100%', backgroundColor: '#6200EE', borderRadius: 2 },
-    
     modalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' },
     modalCloseButton: { position: 'absolute', top: Platform.OS === 'ios' ? 50 : 30, right: 20, zIndex: 10, padding: 10 },
     modalHeader: { position: 'absolute', top: Platform.OS === 'ios' ? 50 : 30, left: 20, zIndex: 9, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 15 },
@@ -5711,7 +5699,6 @@ const extractStoragePathAndBucket = (url: string) => {
 // ====================================================================
 // 3. COMPOSANTS MÉDIA
 // ====================================================================
-
 const PreviewVideo = ({ url, onMediaError }: { url: string, onMediaError: (url: string) => void }) => {
   const player = useVideoPlayer(url, (p) => {
     p.loop = true;
@@ -6032,7 +6019,7 @@ const PostCard = React.memo(({ item, isDark, currentUserId, isSuperuser, onDelet
 // ====================================================================
 // 5. ÉCRAN PRINCIPAL AVEC GESTION DES NOTIFICATIONS
 // ====================================================================
-export default function FeedScreen() {
+function FeedScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const styles = getFeedStyles(colorScheme);
@@ -6148,12 +6135,10 @@ export default function FeedScreen() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       <View style={styles.container}>
-        {/* EN-TÊTE AVEC TITRE GANBANAAXU */}
         <View style={styles.header}>
           <Text style={styles.logoText}>Ganbanaaxu</Text>
         </View>
 
-        {/* BANNÈRE PUBLICITAIRE ADMOB */}
         <View style={styles.adContainer}>
           <BannerAd
             unitId={adUnitId}
@@ -6164,7 +6149,6 @@ export default function FeedScreen() {
           />
         </View>
         
-        {/* FlashList */}
         <FlashList
           data={posts}
           keyExtractor={(item) => item.id?.toString() || Math.random().toString()}
@@ -6195,10 +6179,8 @@ export default function FeedScreen() {
   );
 }
 
-
-
-
-
+// EXPORT PAR DÉFAUT EXPLICITE
+export default FeedScreen;
 
 
 
