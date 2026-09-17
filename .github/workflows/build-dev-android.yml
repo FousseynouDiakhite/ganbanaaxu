@@ -43,7 +43,8 @@ jobs:
       - name: Compiler l'APK de développement
         run: |
           cd android
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug\
+           -PkotlinVersion=2.3.0 
 
       - name: Sauvegarder le fichier .apk
         uses: actions/upload-artifact@v4

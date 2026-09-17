@@ -52,6 +52,7 @@ jobs:
         run: |
           cd android
           ./gradlew bundleRelease \
+            -PkotlinVersion=2.3.0 \
             -Pandroid.injected.signing.store.file=$(pwd)/app/release.keystore \
             -Pandroid.injected.signing.store.password=${{ secrets.ANDROID_KEYSTORE_PASSWORD }} \
             -Pandroid.injected.signing.key.alias=${{ secrets.ANDROID_KEY_ALIAS }} \
