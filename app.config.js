@@ -345,6 +345,12 @@ export default {
     },
     plugins: [
       [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "2.3.0"
+          }
+        },
         "expo-splash-screen",
         {
           image: "./assets/images/logoLiberty.png",
