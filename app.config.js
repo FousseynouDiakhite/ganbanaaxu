@@ -457,7 +457,7 @@ export default {
         "expo-build-properties",
         {
           android: {
-            kotlinVersion: "2.3.0"
+            kotlinVersion: "2.0.21"
           }
         }
       ],
