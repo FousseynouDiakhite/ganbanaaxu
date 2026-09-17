@@ -481,7 +481,8 @@ export default {
         "react-native-google-mobile-ads",
         {
           androidAppId: "ca-app-pub-3940256099942544~3347511713",
-          iosAppId: "ca-app-pub-3940256099942544~1458002511"
+          iosAppId: "ca-app-pub-3940256099942544~1458002511",
+          playServicesAdsVersion: "23.6.0" // <-- Force proprement la version compatible avec Kotlin 2.1.20
         }
       ],
       [
@@ -507,8 +508,7 @@ export default {
       "expo-image",
       "expo-sharing",
       "expo-status-bar",
-      "expo-web-browser",
-      "./force-admob-version.js" // <-- Notre plugin personnalisé ici
+      "expo-web-browser"
     ],
     extra: {
       supabaseUrl: "https://tuciyiawyawrhifpjmmn.supabase.co",
