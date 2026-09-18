@@ -464,7 +464,7 @@ export default {
         "expo-build-properties",
         {
           android: {
-            kotlinVersion: "2.1.20"
+            kotlinVersion: "2.3.0"
           }
         }
       ],
@@ -488,7 +488,7 @@ export default {
         {
           androidAppId: "ca-app-pub-3940256099942544~3347511713",
           iosAppId: "ca-app-pub-3940256099942544~1458002511",
-          playServicesAdsVersion: "23.6.0" // <-- Cette ligne empêche le conflit avec Kotlin
+          playServicesAdsVersion: "23.6.0"
         }
       ],
       [
