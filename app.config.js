@@ -537,9 +537,6 @@ export default {
 
 
 
-
-
-
 const { withProjectBuildGradle } = require("@expo/config-plugins");
 
 export default {
@@ -583,7 +580,7 @@ export default {
         "expo-build-properties",
         {
           android: {
-            kotlinVersion: "2.1.0",
+            kotlinVersion: "2.1.20",
           },
         },
       ],
@@ -635,7 +632,7 @@ export default {
       "expo-status-bar",
       "expo-web-browser",
 
-      // Plugin custom pour forcer Kotlin 2.1.0 sur toutes les dépendances
+      // Alignement global sur Kotlin 2.1.20
       (config) => {
         return withProjectBuildGradle(config, (cfg) => {
           cfg.modResults.contents += `
@@ -643,7 +640,7 @@ allprojects {
     configurations.all {
         resolutionStrategy.eachDependency { DependencyResolveDetails details ->
             if (details.requested.group == 'org.jetbrains.kotlin') {
-                details.useVersion '2.1.0'
+                details.useVersion '2.1.20'
             }
         }
     }
@@ -661,10 +658,6 @@ allprojects {
     owner: "godapps",
   },
 };
-
-
-
-
 
 
 
