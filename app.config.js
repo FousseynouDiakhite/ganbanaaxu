@@ -423,8 +423,6 @@ export default {
 
 
 
-
-
 export default {
   expo: {
     name: "Ganbanaaxu",
@@ -485,7 +483,14 @@ export default {
         }
       ],
       "react-native-compressor",
-      // ❌ SUPPRIMÉ : "react-native-google-mobile-ads" n'a rien à faire ici
+      [
+        "react-native-google-mobile-ads",
+        {
+          androidAppId: "ca-app-pub-3940256099942544~3347511713",
+          iosAppId: "ca-app-pub-3940256099942544~1458002511",
+          playServicesAdsVersion: "23.6.0" // <-- Cette ligne empêche le conflit avec Kotlin
+        }
+      ],
       [
         "expo-audio",
         {
