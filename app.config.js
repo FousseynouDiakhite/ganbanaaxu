@@ -422,7 +422,7 @@ export default {
 
 
 
-
+/*
 export default {
   expo: {
     name: "Ganbanaaxu",
@@ -464,7 +464,7 @@ export default {
         "expo-build-properties",
         {
           android: {
-            kotlinVersion: "2.3.0"
+            kotlinVersion: "2.1.0"
           }
         }
       ],
@@ -524,7 +524,143 @@ export default {
     owner: "godapps",
   },
 };
+*/
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const { withProjectBuildGradle } = require("@expo/config-plugins");
+
+export default {
+  expo: {
+    name: "Ganbanaaxu",
+    slug: "Ganbanaaxu",
+    version: "1.0.15",
+    orientation: "portrait",
+    icon: "./assets/images/logoLiberty.png",
+    scheme: "ganbanaaxu",
+    userInterfaceStyle: "automatic",
+    ios: {
+      supportsTablet: true,
+      bundleIdentifier: "com.godapps.Ganbanaaxu",
+    },
+    android: {
+      package: "com.godapps.Ganbanaaxu",
+      googleServicesFile: "./google-services.json",
+      versionCode: 64,
+      usesCleartextTraffic: true,
+      adaptiveIcon: {
+        foregroundImage: "./assets/images/logoLiberty.png",
+        backgroundColor: "#000000",
+      },
+      intentFilters: [
+        {
+          action: "VIEW",
+          data: [
+            {
+              scheme: "https",
+              host: "ganbanaaxu.app",
+              pathPrefix: "/post",
+            },
+          ],
+          category: ["BROWSABLE", "DEFAULT"],
+        },
+      ],
+    },
+    plugins: [
+      [
+        "expo-build-properties",
+        {
+          android: {
+            kotlinVersion: "2.1.0",
+          },
+        },
+      ],
+      [
+        "expo-splash-screen",
+        {
+          image: "./assets/images/logoLiberty.png",
+          resizeMode: "contain",
+          backgroundColor: "#000000",
+          imageWidth: 200,
+          enableFullScreenImage_experimental: true,
+          dark: {
+            image: "./assets/images/logoLiberty.png",
+            backgroundColor: "#000000",
+          },
+        },
+      ],
+      "react-native-compressor",
+      [
+        "react-native-google-mobile-ads",
+        {
+          androidAppId: "ca-app-pub-3940256099942544~3347511713",
+          iosAppId: "ca-app-pub-3940256099942544~1458002511",
+          playServicesAdsVersion: "23.6.0",
+        },
+      ],
+      [
+        "expo-audio",
+        {
+          microphonePermission: "Autoriser l'accès au micro.",
+          recordAudioAndroid: true,
+        },
+      ],
+      [
+        "expo-image-picker",
+        {
+          photosPermission: "Autoriser l'accès aux photos.",
+          cameraPermission: "Autoriser l'accès à l'appareil photo.",
+        },
+      ],
+      "expo-document-picker",
+      "expo-router",
+      "expo-secure-store",
+      "expo-video",
+      "expo-asset",
+      "expo-font",
+      "expo-image",
+      "expo-sharing",
+      "expo-status-bar",
+      "expo-web-browser",
+
+      // Plugin custom pour forcer Kotlin 2.1.0 sur toutes les dépendances
+      (config) => {
+        return withProjectBuildGradle(config, (cfg) => {
+          cfg.modResults.contents += `
+allprojects {
+    configurations.all {
+        resolutionStrategy.eachDependency { DependencyResolveDetails details ->
+            if (details.requested.group == 'org.jetbrains.kotlin') {
+                details.useVersion '2.1.0'
+            }
+        }
+    }
+}
+`;
+          return cfg;
+        });
+      },
+    ],
+    extra: {
+      supabaseUrl: "https://tuciyiawyawrhifpjmmn.supabase.co",
+      supabaseAnonKey: "sb_publishable_HnPHoEeulclLH-AIHOhS-w_y9j6oZo1",
+      eas: { projectId: "1dc64a7e-56a9-4a5a-9edb-25443f39a2f0" },
+    },
+    owner: "godapps",
+  },
+};
 
 
 
