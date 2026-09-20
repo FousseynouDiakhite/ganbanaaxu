@@ -5601,8 +5601,8 @@ const { width, height } = Dimensions.get('window');
 const adUnitId = __DEV__ 
   ? TestIds.BANNER 
   : Platform.OS === 'ios' 
-    ? 'ca-app-pub-xxxxxxxxxxxxxxxx/yyyyyyyyyy'
-    : 'ca-app-pub-xxxxxxxxxxxxxxxx/zzzzzzzzzz';
+    ? 'ca-app-pub-3940256099942544~3347511713'
+    : 'ca-app-pub-3940256099942544~1458002511';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
