@@ -5592,17 +5592,30 @@ import { FlashList } from '@shopify/flash-list';
 import { useAudioPlayer } from 'expo-audio';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { Image } from 'expo-image';
+
 import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
 
 import { supabase } from '../../lib/supabase'; 
 
 const { width, height } = Dimensions.get('window');
-
+/*
 const adUnitId = __DEV__ 
   ? TestIds.BANNER 
   : Platform.OS === 'ios' 
     ? 'ca-app-pub-3940256099942544~3347511713'
     : 'ca-app-pub-3940256099942544~1458002511';
+*/
+
+
+const PROD_BANNER_ANDROID = 'ca-app-pub-2071663229767228/8501336070';
+const PROD_BANNER_IOS = TestIds.BANNER;
+
+const adUnitId = __DEV__ 
+  ? TestIds.BANNER 
+  : Platform.OS === 'ios' 
+    ? PROD_BANNER_IOS 
+    : PROD_BANNER_ANDROID;
+
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({

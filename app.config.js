@@ -543,7 +543,7 @@ export default {
   expo: {
     name: "Ganbanaaxu",
     slug: "Ganbanaaxu",
-    version: "1.0.16",
+    version: "1.0.17",
     orientation: "portrait",
     icon: "./assets/images/logoLiberty.png",
     scheme: "ganbanaaxu",
@@ -555,7 +555,7 @@ export default {
     android: {
       package: "com.godapps.Ganbanaaxu",
       googleServicesFile: "./google-services.json",
-      versionCode: 65,
+      versionCode: 66,
       usesCleartextTraffic: true,
       adaptiveIcon: {
         foregroundImage: "./assets/images/logoLiberty.png",
@@ -602,7 +602,7 @@ export default {
       [
         "react-native-google-mobile-ads",
         {
-          androidAppId: "ca-app-pub-3940256099942544~3347511713",
+          androidAppId: "ca-app-pub-2071663229767228/8501336070", //"ca-app-pub-3940256099942544~3347511713"
           iosAppId: "ca-app-pub-3940256099942544~1458002511",
           playServicesAdsVersion: "23.6.0",
         },
