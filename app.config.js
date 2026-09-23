@@ -602,7 +602,7 @@ export default {
       [
         "react-native-google-mobile-ads",
         {
-          androidAppId: "ca-app-pub-2071663229767228/8501336070", //"ca-app-pub-3940256099942544~3347511713"
+          androidAppId: "ca-app-pub-3940256099942544~3347511713",
           iosAppId: "ca-app-pub-3940256099942544~1458002511",
           playServicesAdsVersion: "23.6.0",
         },
