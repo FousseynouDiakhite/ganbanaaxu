@@ -148,7 +148,7 @@ export default function TabLayout() {
 
 
 
-
+/*
 
 import React, { useEffect } from 'react';
 import { Platform, useColorScheme } from 'react-native';
@@ -282,6 +282,147 @@ export default function TabLayout() {
     </>
   );
 }
+*/
 
 
 
+
+
+
+
+
+
+
+
+import React, { useEffect } from 'react';
+import { Platform, useColorScheme } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+
+// Importations compatibles avec Expo Router SDK 56+
+import { withLayoutContext } from 'expo-router';
+import { createMaterialTopTabNavigator } from 'expo-router/js-top-tabs';
+
+// Création du navigateur de "Top Tabs" (placé en bas)
+const { Navigator } = createMaterialTopTabNavigator();
+const SwipeTabs = withLayoutContext(Navigator);
+
+// ========== COMPOSANT D'ANIMATION ==========
+const AnimatedTabIcon = ({ focused, name, color, size }: { focused: boolean, name: keyof typeof Ionicons.glyphMap, color: string, size: number }) => {
+  const scale = useSharedValue(1);
+
+  useEffect(() => {
+    scale.value = withSpring(focused ? 1.2 : 1, {
+      mass: 0.5,
+      damping: 12,
+      stiffness: 150,
+    });
+  }, [focused, scale]);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: scale.value }],
+    };
+  });
+
+  return (
+    <Animated.View style={animatedStyle}>
+      <Ionicons size={size} name={name} color={color} />
+    </Animated.View>
+  );
+};
+
+// ========== MAIN COMPONENT ==========
+export default function TabLayout() {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+
+  // Couleurs basées sur le thème
+  const colors = {
+    background: isDark ? '#121212' : '#ffffff',
+    tint: isDark ? '#BB86FC' : '#6200EE',
+    inactive: isDark ? '#777' : '#999',
+    text: isDark ? '#FFFFFF' : '#1C1E21',
+  };
+
+  return (
+    <>
+      <StatusBar
+        style={isDark ? 'light' : 'dark'}
+        backgroundColor={colors.background}
+        translucent={Platform.OS === 'android'}
+      />
+
+      <SwipeTabs
+        tabBarPosition="bottom" // Place la barre en bas
+        screenOptions={{
+          swipeEnabled: true, // Active le slide entre les écrans
+          tabBarActiveTintColor: colors.tint,
+          tabBarInactiveTintColor: colors.inactive,
+          tabBarShowIcon: true, 
+          tabBarShowLabel: true,
+          tabBarIndicatorStyle: {
+            height: 0, // Cache la ligne d'indication pour ressembler aux BottomTabs classiques
+          },
+          tabBarStyle: {
+            height: Platform.OS === 'ios' ? 85 : 65,
+            paddingBottom: Platform.OS === 'ios' ? 20 : 5,
+            backgroundColor: colors.background,
+            elevation: 0,
+            shadowOpacity: 0,
+            borderTopWidth: 1,
+            borderColor: isDark ? '#222' : '#eee',
+          },
+          tabBarLabelStyle: {
+            fontSize: 11,
+            fontWeight: '600',
+            textTransform: 'none',
+            marginTop: 2,
+          },
+          tabBarIconStyle: {
+            justifyContent: 'center',
+            alignItems: 'center',
+          },
+        }}
+      >
+        <SwipeTabs.Screen
+          name="index"
+          options={{
+            title: 'Accueil',
+            tabBarIcon: ({ color, focused }) => (
+              <AnimatedTabIcon focused={focused} name="home" color={color} size={26} />
+            ),
+          }}
+        />
+        <SwipeTabs.Screen
+          name="explore"
+          options={{
+            title: 'Explorer',
+            tabBarIcon: ({ color, focused }) => (
+              <AnimatedTabIcon focused={focused} name="search" color={color} size={26} />
+            ),
+          }}
+        />
+        <SwipeTabs.Screen
+          name="chat"
+          options={{
+            title: 'Chat',
+            tabBarIcon: ({ color, focused }) => (
+              <AnimatedTabIcon focused={focused} name="chatbubble" color={color} size={26} />
+            ),
+          }}
+        />
+        <SwipeTabs.Screen
+          name="profile"
+          options={{
+            title: 'Profile',
+            tabBarIcon: ({ color, focused }) => (
+              <AnimatedTabIcon focused={focused} name="person-circle" color={color} size={26} />
+            ),
+          }}
+        />
+      </SwipeTabs>
+    </>
+  );
+}

@@ -2041,7 +2041,7 @@ const ICONS: { [key: string]: string } = {
 const EXPLORE_CATEGORIES = [
   { id: "events", title: "Événements", iconName: "events" },
   //{ id: "videos", title: "Vidéos", iconName: "videos" },
-  { id: "articles", title: "Articles", iconName: "articles" },
+  { id: "articles", title: "Archives", iconName: "articles" },
   //{ id: "boutique", title: "Boutique", iconName: "boutique" },
   //{ id: "community", title: "Communauté", iconName: "community" },
 ];
@@ -2604,9 +2604,9 @@ const ArticlesScreen: React.FC<ScreenProps> = ({ onGoBack, theme }) => {
   const isDark = theme.background === "#121212";
   
   return (
-    <PageContent title="Articles et Guides" onGoBack={onGoBack} theme={theme}>
+    <PageContent title="Archives" onGoBack={onGoBack} theme={theme}>
       <Text style={[styles.pageParagraph, { color: theme.textSecondary, marginBottom: 20 }]}>
-        Apprenez de nouvelles compétences avec nos guides détaillés. (Contenu à venir)
+        (Contenu à venir)
       </Text>
 
       {/* PUB NATIVE DANS ARTICLES */}
@@ -2719,7 +2719,7 @@ export default function ExploreScreen() {
   const renderGrid = (): JSX.Element => (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.text }]}>Explorer</Text>
+        <Text style={[styles.title, { color: 'indigo' /*theme.text*/ }]}>Explorer</Text>
         <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
           Découvrez du nouveau contenu
         </Text>
@@ -2855,7 +2855,7 @@ export default function ExploreScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { paddingHorizontal: 20, paddingTop: 15, paddingBottom: 10 },
-  title: { fontSize: 32, fontWeight: "bold" },
+  title: { fontSize: 32, fontWeight: "bold", color: "indigo"},
   subtitle: { fontSize: 16, marginTop: 4 },
   scrollContainer: { paddingHorizontal: 15, paddingBottom: 40 },
   cardsGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },

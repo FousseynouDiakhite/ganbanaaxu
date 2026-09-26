@@ -9562,16 +9562,21 @@ export default function Index() {
     setIsSignUpMode((prev) => !prev);
     setPassword('');
   }, []);
-
-  // ÉCRAN BLANC/NOIR MASQUÉ PAR LE SPLASH SCREEN
+// ÉCRAN DE CHARGEMENT ÉLÉGANT (Remplace l'écran noir)
   if (!rootNavigationState?.key || loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
         <StatusBar
           barStyle={isDark ? 'light-content' : 'dark-content'}
           backgroundColor={colors.background}
           translucent={Platform.OS === 'android'}
         />
+        {/* Titre ou Logo de ton application */}
+        <Text style={{ fontSize: 32, fontWeight: 'bold', color: colors.primary, marginBottom: 20 }}>
+          Ganbanaaxu
+        </Text>
+        {/* Indicateur de chargement */}
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
