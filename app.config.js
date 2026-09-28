@@ -536,7 +536,7 @@ export default {
 
 
 
-
+/*
 const { withProjectBuildGradle } = require("@expo/config-plugins");
 
 export default {
@@ -577,6 +577,12 @@ export default {
     },
     plugins: [
       [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera",
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone",
+          "recordAudioAndroid": true
+        },
         "expo-build-properties",
         {
           android: {
@@ -658,6 +664,7 @@ allprojects {
     owner: "godapps",
   },
 };
+*/
 
 
 
@@ -673,8 +680,151 @@ allprojects {
 
 
 
+import { withProjectBuildGradle } from "@expo/config-plugins";
 
+export default {
+  expo: {
+    name: "Ganbanaaxu",
+    slug: "Ganbanaaxu",
+    version: "1.0.17",
+    orientation: "portrait",
+    icon: "./assets/images/logoLiberty.png",
+    scheme: "ganbanaaxu",
+    userInterfaceStyle: "automatic",
+    ios: {
+      supportsTablet: true,
+      bundleIdentifier: "com.godapps.Ganbanaaxu",
+      infoPlist: {
+        NSCameraUsageDescription: "Autoriser l'accès à l'appareil photo.",
+        NSMicrophoneUsageDescription: "Autoriser l'accès au micro.",
+        NSPhotoLibraryUsageDescription: "Autoriser l'accès aux photos.",
+        NSPhotoLibraryAddUsageDescription: "Autoriser l'enregistrement dans la galerie.",
+      },
+    },
+    android: {
+      package: "com.godapps.Ganbanaaxu",
+      googleServicesFile: "./google-services.json",
+      versionCode: 66,
+      usesCleartextTraffic: true,
+      adaptiveIcon: {
+        foregroundImage: "./assets/images/logoLiberty.png",
+        backgroundColor: "#000000",
+      },
+      permissions: [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+      ],
+      intentFilters: [
+        {
+          action: "VIEW",
+          data: [
+            {
+              scheme: "https",
+              host: "ganbanaaxu.app",
+              pathPrefix: "/post",
+            },
+          ],
+          category: ["BROWSABLE", "DEFAULT"],
+        },
+      ],
+    },
+    plugins: [
+      // ⚠️ CHAQUE PLUGIN DOIT ÊTRE DANS SON PROPRE TABLEAU
+      [
+        "expo-camera",
+        {
+          cameraPermission: "Allow $(PRODUCT_NAME) to access your camera",
+          microphonePermission: "Allow $(PRODUCT_NAME) to access your microphone",
+          recordAudioAndroid: true,
+        },
+      ],
+      [
+        "expo-build-properties",
+        {
+          android: {
+            kotlinVersion: "2.1.20",
+          },
+        },
+      ],
+      [
+        "expo-audio",
+        {
+          microphonePermission: "Autoriser l'accès au micro.",
+          recordAudioAndroid: true,
+        },
+      ],
+      [
+        "expo-media-library",
+        {
+          photosPermission: "Autoriser l'accès aux photos.",
+          savePhotosPermission: "Autoriser l'enregistrement dans la galerie.",
+          isAccessMediaLocationEnabled: true,
+        },
+      ],
+      [
+        "expo-splash-screen",
+        {
+          image: "./assets/images/logoLiberty.png",
+          resizeMode: "contain",
+          backgroundColor: "#000000",
+          imageWidth: 200,
+          enableFullScreenImage_experimental: true,
+          dark: {
+            image: "./assets/images/logoLiberty.png",
+            backgroundColor: "#000000",
+          },
+        },
+      ],
+      "react-native-compressor",
+      [
+        "react-native-google-mobile-ads",
+        {
+          androidAppId: "ca-app-pub-3940256099942544~3347511713",
+          iosAppId: "ca-app-pub-3940256099942544~1458002511",
+          playServicesAdsVersion: "23.6.0",
+        },
+      ],
+      "expo-document-picker",
+      "expo-router",
+      "expo-secure-store",
+      "expo-video",
+      "expo-asset",
+      "expo-font",
+      "expo-image",
+      "expo-sharing",
+      "expo-status-bar",
+      "expo-web-browser",
 
+      // Alignement global sur Kotlin 2.1.20
+      (config) => {
+        return withProjectBuildGradle(config, (cfg) => {
+          cfg.modResults.contents += `
+allprojects {
+    configurations.all {
+        resolutionStrategy.eachDependency { DependencyResolveDetails details ->
+            if (details.requested.group == 'org.jetbrains.kotlin') {
+                details.useVersion '2.1.20'
+            }
+        }
+    }
+}
+`;
+          return cfg;
+        });
+      },
+    ],
+    extra: {
+      supabaseUrl: "https://tuciyiawyawrhifpjmmn.supabase.co",
+      supabaseAnonKey: "sb_publishable_HnPHoEeulclLH-AIHOhS-w_y9j6oZo1",
+      eas: { projectId: "1dc64a7e-56a9-4a5a-9edb-25443f39a2f0" },
+    },
+    owner: "godapps",
+  },
+};
 
 
 
