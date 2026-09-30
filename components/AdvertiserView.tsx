@@ -2512,7 +2512,7 @@ const styles = StyleSheet.create({
 
 
 
-
+/*
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, ScrollView, Alert, Image } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -2751,8 +2751,7 @@ export default function AdvertiserView({ isDark = false }) {
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-      
-      {/* BANNIÈRE DE LIMITE */}
+    
       <View style={[styles.limitContainer, !canPublish && styles.limitContainerError]}>
         <Ionicons name={canPublish ? "information-circle" : "warning"} size={24} color={canPublish ? "#007AFF" : "#FF3B30"} />
         <Text style={[styles.limitText, !canPublish && styles.limitTextError]}>
@@ -2761,7 +2760,7 @@ export default function AdvertiserView({ isDark = false }) {
         </Text>
       </View>
 
-      {/* BOUTONS */}
+ 
       <View style={styles.grid}>
         <TouchableOpacity style={[styles.bigButton, { backgroundColor: '#FF9500' }]} onPress={takeMedia} disabled={loading || !canPublish}>
           <Ionicons name="camera" size={40} color="#FFF" />
@@ -2788,7 +2787,7 @@ export default function AdvertiserView({ isDark = false }) {
         </TouchableOpacity>
       </View>
 
-      {/* ZONE DE VISUALISATION */}
+    
       <View style={styles.previewSection}>
         {selectedMedia.length > 0 && (
           <View style={styles.previewContainer}>
@@ -2816,7 +2815,7 @@ export default function AdvertiserView({ isDark = false }) {
         )}
       </View>
 
-      {/* BOUTON ENVOYER */}
+  
       <TouchableOpacity 
         style={[styles.btnSendHuge, (loading || !canPublish) ? styles.disabledBtn : null]} 
         onPress={handlePublishProcess} 
@@ -2867,3 +2866,1302 @@ const styles = StyleSheet.create({
   btnSendHugeText: { color: '#FFF', fontWeight: '900', fontSize: 20, letterSpacing: 1 },
   disabledBtn: { opacity: 0.5 },
 });
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+// AdvertiserView.tsx
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import {
+  StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, Alert,
+  Image, ScrollView, SafeAreaView, Modal, Dimensions, PanResponder,
+} from 'react-native';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import { 
+  useAudioPlayer, 
+  useAudioPlayerStatus, 
+  useAudioRecorder, 
+  AudioModule, 
+  RecordingPresets, 
+  setAudioModeAsync 
+} from 'expo-audio';
+import { supabase } from '../lib/supabase';
+import * as FileSystem from 'expo-file-system/legacy';
+import { decode } from 'base64-arraybuffer';
+import { manipulateAsync, SaveFormat, FlipType } from 'expo-image-manipulator';
+
+const { width: SW, height: SH } = Dimensions.get('window');
+const CW = SW - 32, CH = SH * 0.58, MIN = 60, TOUCH = 56;
+type Rect = { left: number; top: number; width: number; height: number };
+
+export interface MediaItem {
+  uri: string;
+  type?: 'image' | string;
+}
+
+export default function AdvertiserView({ isDark = false }: { isDark?: boolean }) {
+  // --- ÉTATS ---
+  const [selectedMedia, setSelectedMedia] = useState<MediaItem[]>([]);
+  const [recordedAudioUri, setRecordedAudioUri] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
+  const [postsThisMonth, setPostsThisMonth] = useState(0); 
+  const MAX_POSTS_PER_MONTH = 5;
+  const canPublish = postsThisMonth < MAX_POSTS_PER_MONTH;
+
+  // --- CROP & EDIT STATE ---
+  const [editIdx, setEditIdx] = useState<number | null>(null);
+  const [editUri, setEditUri] = useState<string | null>(null);
+  const [imgSize, setImgSize] = useState({ width: 1, height: 1 });
+  const [dispSize, setDispSize] = useState({ width: CW, height: CH });
+  const [crop, setCrop] = useState<Rect>({ left: 0, top: 0, width: CW, height: CH });
+  const cropRef = useRef(crop), initRef = useRef(crop);
+  const [zoom, setZoom] = useState(1);
+  const zoomRef = useRef(1), pinchDist = useRef<number | null>(null), initScale = useRef(1);
+
+  useEffect(() => { cropRef.current = crop; }, [crop]);
+  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+
+  // --- GESTION AUDIO ---
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const player = useAudioPlayer(recordedAudioUri ? { uri: recordedAudioUri } : { uri: '' });
+  const playerStatus = useAudioPlayerStatus(player);
+  useEffect(() => { if (recordedAudioUri && player) player.replace({ uri: recordedAudioUri }); }, [recordedAudioUri]);
+
+  // --- RÉCUPÉRATION DU NOMBRE DE POSTS DU MOIS DEPUIS SUPABASE ---
+  useEffect(() => {
+    const fetchMonthlyPostCount = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).toISOString();
+
+        const { count, error } = await supabase
+          .from('posts')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .gte('created_at', startOfMonth)
+          .lte('created_at', endOfMonth);
+
+        if (error) {
+          console.error("Erreur lors du comptage des posts:", error.message);
+        } else {
+          setPostsThisMonth(count || 0);
+        }
+      } catch (err) {
+        console.log("Erreur inattendue lors de la récupération des posts:", err);
+      }
+    };
+
+    fetchMonthlyPostCount();
+  }, []);
+
+  // --- PAN RESPONDER FACTORY (CROPPER) ---
+  const makeCornerPan = (corner: 'TL' | 'TR' | 'BL' | 'BR') =>
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => { initRef.current = { ...cropRef.current }; },
+      onPanResponderMove: (_, g) => {
+        const i = initRef.current;
+        let { left, top, width, height } = i;
+        if (corner === 'TL' || corner === 'BL') {
+          left = Math.max(0, Math.min(i.left + g.dx, i.left + i.width - MIN));
+          width = i.left + i.width - left;
+        } else {
+          width = Math.max(MIN, Math.min(i.width + g.dx, dispSize.width - i.left));
+        }
+        if (corner === 'TL' || corner === 'TR') {
+          top = Math.max(0, Math.min(i.top + g.dy, i.top + i.height - MIN));
+          height = i.top + i.height - top;
+        } else {
+          height = Math.max(MIN, Math.min(i.height + g.dy, dispSize.height - i.top));
+        }
+        setCrop({ left, top, width, height });
+      },
+    });
+
+  const panTL = useMemo(() => makeCornerPan('TL'), [dispSize]);
+  const panTR = useMemo(() => makeCornerPan('TR'), [dispSize]);
+  const panBL = useMemo(() => makeCornerPan('BL'), [dispSize]);
+  const panBR = useMemo(() => makeCornerPan('BR'), [dispSize]);
+
+  const panCenter = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (e) => (e.nativeEvent.touches?.length ?? 0) <= 2,
+    onPanResponderGrant: (e) => {
+      initRef.current = { ...cropRef.current };
+      const t = e.nativeEvent.touches || [];
+      if (t.length === 2) {
+        pinchDist.current = Math.hypot(t[0].pageX - t[1].pageX, t[0].pageY - t[1].pageY);
+        initScale.current = zoomRef.current;
+      }
+    },
+    onPanResponderMove: (e, g) => {
+      const t = e.nativeEvent.touches || [];
+      if (t.length === 2 && pinchDist.current) {
+        const d = Math.hypot(t[0].pageX - t[1].pageX, t[0].pageY - t[1].pageY);
+        setZoom(Math.min(3, Math.max(1, initScale.current * (d / pinchDist.current))));
+        return;
+      }
+      if (t.length === 1) {
+        const i = initRef.current;
+        setCrop({
+          ...i,
+          left: Math.max(0, Math.min(i.left + g.dx, dispSize.width - i.width)),
+          top: Math.max(0, Math.min(i.top + g.dy, dispSize.height - i.height)),
+        });
+      }
+    },
+    onPanResponderRelease: () => { pinchDist.current = null; },
+    onPanResponderTerminate: () => { pinchDist.current = null; },
+  }), [dispSize]);
+
+  // --- CROP ACTIONS ---
+  const openEditor = (idx: number) => {
+    const uri = selectedMedia[idx].uri;
+    Image.getSize(uri, (w, h) => {
+      if (!w || !h) return Alert.alert('Erreur', "Dimensions de l'image invalides.");
+      setImgSize({ width: w, height: h });
+      const r = w / h, cr = CW / CH;
+      const dW = r > cr ? CW : CH * r, dH = r > cr ? CW / r : CH;
+      setDispSize({ width: dW, height: dH });
+      setCrop({ left: 0, top: 0, width: dW, height: dH });
+      setZoom(1); zoomRef.current = 1;
+      setEditIdx(idx); setEditUri(uri);
+    }, () => Alert.alert('Erreur', "Impossible de charger l'image."));
+  };
+
+  const resetCrop = () => {
+    setCrop({ left: 0, top: 0, width: dispSize.width, height: dispSize.height });
+    setZoom(1); zoomRef.current = 1;
+  };
+
+  const rotate = async () => {
+    if (!editUri) return;
+    const r = await manipulateAsync(editUri, [{ rotate: 90 }], { compress: 0.8, format: SaveFormat.JPEG });
+    setEditUri(r.uri);
+    Image.getSize(r.uri, (w, h) => {
+      if (!w || !h) return;
+      setImgSize({ width: w, height: h });
+      const ratio = w / h, cr = CW / CH;
+      const dW = ratio > cr ? CW : CH * ratio, dH = ratio > cr ? CW / ratio : CH;
+      setDispSize({ width: dW, height: dH });
+      setCrop({ left: 0, top: 0, width: dW, height: dH });
+      setZoom(1); zoomRef.current = 1;
+    });
+  };
+
+  const flip = async () => {
+    if (!editUri) return;
+    const r = await manipulateAsync(editUri, [{ flip: FlipType.Horizontal }], { compress: 0.8, format: SaveFormat.JPEG });
+    setEditUri(r.uri);
+  };
+
+  const applyCrop = async () => {
+    if (!editUri || editIdx === null) return;
+    try {
+      const { width: cw, height: ch } = dispSize, s = zoom, cx = cw / 2, cy = ch / 2;
+      const ux1 = cx + (crop.left - cx) / s, uy1 = cy + (crop.top - cy) / s;
+      const ux2 = cx + (crop.left + crop.width - cx) / s, uy2 = cy + (crop.top + crop.height - cy) / s;
+      const sx = imgSize.width / cw, sy = imgSize.height / ch;
+      const originX = Math.max(0, Math.round(ux1 * sx));
+      const originY = Math.max(0, Math.round(uy1 * sy));
+      const w = Math.min(imgSize.width - originX, Math.round((ux2 - ux1) * sx));
+      const h = Math.min(imgSize.height - originY, Math.round((uy2 - uy1) * sy));
+      
+      if (w <= 1 || h <= 1) return Alert.alert('Erreur', 'Zone invalide.');
+      const r = await manipulateAsync(editUri, [{ crop: { originX, originY, width: w, height: h } }], { compress: 0.8, format: SaveFormat.JPEG });
+      setSelectedMedia(p => { const u = [...p]; u[editIdx] = { ...u[editIdx], uri: r.uri }; return u; });
+      closeEditor();
+    } catch { Alert.alert('Erreur', "Échec du rognage."); closeEditor(); }
+  };
+
+  const closeEditor = () => { setEditIdx(null); setEditUri(null); };
+
+  // --- CAMÉRA (UNIQUEMENT PHOTO) ---
+  const takeMedia = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission', 'Accès à la caméra refusé.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'], 
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      const asset = result.assets[0];
+      setSelectedMedia(prev => [...prev, { uri: asset.uri, type: 'image' }]);
+    }
+  };
+
+  // --- SÉLECTION GALERIE (UNIQUEMENT PHOTO) ---
+  const pickMedia = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission', 'Accès à la galerie refusé.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'], 
+      allowsMultipleSelection: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      const newMedia = result.assets.map(asset => ({ uri: asset.uri, type: 'image' }));
+      setSelectedMedia(prev => [...prev, ...newMedia]);
+    }
+  };
+
+  const removeMedia = (index: number) => {
+    setSelectedMedia((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // --- SÉLECTION FICHIER AUDIO ---
+  const pickAudioFile = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ type: 'audio/*' });
+      if (!result.canceled && result.assets.length > 0) {
+        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+        setRecordedAudioUri(result.assets[0].uri);
+      }
+    } catch (err) {
+      console.log('Erreur sélection audio', err);
+    }
+  };
+
+  // --- ENREGISTREMENT VOCAL ---
+  const startRecording = async () => {
+    try {
+      const permission = await AudioModule.requestRecordingPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission', 'Accès au micro refusé.');
+        return;
+      }
+      
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      await recorder.prepareToRecordAsync();
+      await recorder.record();
+      setIsRecording(true);
+    } catch (err) {
+      console.error("Erreur lors de l'enregistrement:", err);
+    }
+  };
+
+  const stopRecording = async () => {
+    try {
+      setIsRecording(false);
+      await recorder.stop();
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+      
+      const uri = recorder.uri;
+      if (uri) {
+        setRecordedAudioUri(uri);
+        player?.replace({ uri });
+      }
+    } catch (err) {
+      console.error('Erreur arrêt enregistrement', err);
+    }
+  };
+
+  // --- LECTURE VOCAL ---
+  const toggleAudioPreview = async () => {
+    if (!player) return;
+    await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+    
+    if (playerStatus.playing) {
+      player.pause();
+    } else {
+      player.seekTo(0);
+      player.play();
+    }
+  };
+
+  const deleteAudio = () => {
+    if (player && playerStatus.playing) {
+      player.pause();
+    }
+    setRecordedAudioUri(null);
+  };
+
+  // --- FONCTION D'UPLOAD UNIFIÉE ---
+  const uploadFileToSupabase = async (uri: string, folder: string): Promise<string> => {
+    const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+    const arrayBuffer = decode(base64);
+    const fileExt = uri.split('.').pop()?.split('?')[0] || 'bin';
+    
+    let mimeType = folder === 'medias' ? 'image/jpeg' : 'audio/m4a'; 
+    const fileName = `${folder}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+    const { error } = await supabase.storage
+      .from('ganbanaaxu-media') 
+      .upload(fileName, arrayBuffer, { contentType: mimeType, upsert: false });
+    
+    if (error) throw new Error(`Erreur Storage: ${error.message}`);
+    
+    const { data } = supabase.storage.from('ganbanaaxu-media').getPublicUrl(fileName);
+    return data.publicUrl;
+  };
+
+  // --- PROCESSUS DE PUBLICATION ---
+  const handlePublishProcess = async () => {
+    if (selectedMedia.length === 0 && !recordedAudioUri) {
+      Alert.alert("Rien à envoyer", "Ajoutez une photo ou un vocal.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Vous devez être connecté.");
+
+      const uploadedMediaUrls = await Promise.all(selectedMedia.map(item => uploadFileToSupabase(item.uri, 'medias')));
+      let uploadedAudioUrl = recordedAudioUri ? await uploadFileToSupabase(recordedAudioUri, 'audios') : null;
+
+      const { error } = await supabase.from('posts').insert([
+        {
+          user_id: user.id,
+          media_urls: uploadedMediaUrls,
+          audio_url: uploadedAudioUrl,
+          caption: "Annonce sponsorisée", 
+        }
+      ]);
+
+      if (error) throw error;
+
+      Alert.alert("Succès !", "Votre annonce a été envoyée avec succès.");
+      
+      setSelectedMedia([]);
+      deleteAudio();
+      setPostsThisMonth(prev => prev + 1);
+
+    } catch (error: any) {
+      Alert.alert("Erreur de publication", error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Styles utilitaires pour le crop
+  const cornerStyle = (c: 'TL' | 'TR' | 'BL' | 'BR') => {
+    const base = { position: 'absolute', width: TOUCH, height: TOUCH, justifyContent: 'center', alignItems: 'center', zIndex: 25 } as const;
+    const pos = {
+      TL: { top: -TOUCH / 2, left: -TOUCH / 2 },
+      TR: { top: -TOUCH / 2, right: -TOUCH / 2 },
+      BL: { bottom: -TOUCH / 2, left: -TOUCH / 2 },
+      BR: { bottom: -TOUCH / 2, right: -TOUCH / 2 },
+    }[c];
+    return [base, pos];
+  };
+
+  const shapeStyle = (c: 'TL' | 'TR' | 'BL' | 'BR') => ({
+    width: 24, height: 24, borderColor: '#FFF',
+    ...(c === 'TL' ? { borderTopWidth: 3, borderLeftWidth: 3 } : {}),
+    ...(c === 'TR' ? { borderTopWidth: 3, borderRightWidth: 3 } : {}),
+    ...(c === 'BL' ? { borderBottomWidth: 3, borderLeftWidth: 3 } : {}),
+    ...(c === 'BR' ? { borderBottomWidth: 3, borderRightWidth: 3 } : {}),
+  });
+
+  return (
+    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      
+     
+      <Modal visible={editIdx !== null} animationType="fade" onRequestClose={closeEditor}>
+        <SafeAreaView style={styles.editor}>
+          <View style={styles.editorHead}>
+            <TouchableOpacity onPress={closeEditor}><Ionicons name="close" size={26} color="#FFF" /></TouchableOpacity>
+            <Text style={styles.editorTitle}>Recadrer l'annonce</Text>
+            <TouchableOpacity onPress={applyCrop} style={styles.saveBtn}>
+              <Ionicons name="checkmark" size={20} color="#FFF" />
+              <Text style={styles.saveTxt}>Appliquer</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.previewZone}>
+            <View style={styles.zoomBadge}><Text style={styles.zoomTxt}>{zoom.toFixed(1)}x</Text></View>
+
+            <View style={[styles.imgBox, { width: dispSize.width, height: dispSize.height }]}>
+              <View style={[styles.clipLayer, { width: dispSize.width, height: dispSize.height }]}>
+                {editUri && (
+                  <Image 
+                    key={editUri} 
+                    source={{ uri: editUri }} 
+                    style={[styles.editorImg, { width: dispSize.width, height: dispSize.height, transform: [{ scale: zoom }] }]} 
+                    resizeMode="contain" 
+                  />
+                )}
+                
+                <View style={[styles.mask, { top: 0, left: 0, width: dispSize.width, height: crop.top }]} pointerEvents="none" />
+                <View style={[styles.mask, { top: crop.top + crop.height, left: 0, width: dispSize.width, height: dispSize.height - (crop.top + crop.height) }]} pointerEvents="none" />
+                <View style={[styles.mask, { top: crop.top, left: 0, width: crop.left, height: crop.height }]} pointerEvents="none" />
+                <View style={[styles.mask, { top: crop.top, left: crop.left + crop.width, width: dispSize.width - (crop.left + crop.width), height: crop.height }]} pointerEvents="none" />
+              </View>
+
+              <View style={[styles.cropBox, { left: crop.left, top: crop.top, width: crop.width, height: crop.height }]} pointerEvents="box-none">
+                <View style={{ flex: 1 }} {...panCenter.panHandlers}>
+                  <View style={[styles.gridH, { top: '33.33%' }]} pointerEvents="none" />
+                  <View style={[styles.gridH, { top: '66.66%' }]} pointerEvents="none" />
+                  <View style={[styles.gridV, { left: '33.33%' }]} pointerEvents="none" />
+                  <View style={[styles.gridV, { left: '66.66%' }]} pointerEvents="none" />
+                </View>
+                {(['TL', 'TR', 'BL', 'BR'] as const).map(c => (
+                  <View key={c} style={cornerStyle(c)} hitSlop={{ top: 10, left: 10, right: 10, bottom: 10 }} {...({ TL: panTL, TR: panTR, BL: panBL, BR: panBR }[c]).panHandlers}>
+                    <View style={shapeStyle(c)} pointerEvents="none" />
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            <Text style={styles.hint}>• Glissez les coins pour rogner{'\n'}• Centre pour déplacer | 2 doigts pour zoomer</Text>
+          </View>
+
+          <View style={styles.toolbar}>
+            {[
+              { icon: 'scan-outline', label: 'Reset', fn: resetCrop },
+              { icon: 'refresh-outline', label: 'Pivoter', fn: rotate },
+              { icon: 'swap-horizontal-outline', label: 'Miroir', fn: flip },
+            ].map(t => (
+              <TouchableOpacity key={t.label} onPress={t.fn} style={styles.tool}>
+                <Ionicons name={t.icon as any} size={22} color="#FFF" />
+                <Text style={styles.toolTxt}>{t.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </SafeAreaView>
+      </Modal>
+
+    
+      <View style={[styles.limitContainer, !canPublish && styles.limitContainerError]}>
+        <Ionicons name={canPublish ? "information-circle" : "warning"} size={24} color={canPublish ? "#007AFF" : "#FF3B30"} />
+        <Text style={[styles.limitText, !canPublish && styles.limitTextError]}>
+          Annonces publiées ce mois-ci : {postsThisMonth} / {MAX_POSTS_PER_MONTH}
+          {!canPublish && "\nVous avez atteint votre limite mensuelle."}
+        </Text>
+      </View>
+
+      
+      <View style={styles.grid}>
+        <TouchableOpacity style={[styles.bigButton, { backgroundColor: '#FF9500' }]} onPress={takeMedia} disabled={loading || !canPublish}>
+          <Ionicons name="camera" size={40} color="#FFF" />
+          <Text style={styles.bigButtonText}>Photo</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={[styles.bigButton, { backgroundColor: '#007AFF' }]} onPress={pickMedia} disabled={loading || !canPublish}>
+          <Ionicons name="images" size={40} color="#FFF" />
+          <Text style={styles.bigButtonText}>Galerie</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.bigButton, isRecording ? { backgroundColor: '#000' } : { backgroundColor: '#FF3B30' }]} 
+          onPress={isRecording ? stopRecording : startRecording} 
+          disabled={loading || !canPublish}
+        >
+          <Ionicons name={isRecording ? "stop-circle" : "mic"} size={40} color="#FFF" />
+          <Text style={styles.bigButtonText}>{isRecording ? "Arrêter" : "Parler"}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={[styles.bigButton, { backgroundColor: '#AF52DE' }]} onPress={pickAudioFile} disabled={loading || !canPublish}>
+          <Ionicons name="musical-notes" size={40} color="#FFF" />
+          <Text style={styles.bigButtonText}>Audio</Text>
+        </TouchableOpacity>
+      </View>
+
+    
+      <View style={styles.previewSection}>
+        {selectedMedia.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingVertical: 5 }}>
+            {selectedMedia.map((item, index) => (
+              <View key={index} style={styles.thumbnailWrapper}>
+                <Image source={{ uri: item.uri }} style={styles.thumbnail} />
+                <TouchableOpacity style={styles.editBadge} onPress={() => openEditor(index)}>
+                  <Ionicons name="pencil" size={16} color="#FFF" />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.removeBadge} onPress={() => removeMedia(index)}>
+                  <Ionicons name="close-circle" size={26} color="#FF3B30" />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </ScrollView>
+        )}
+
+        {recordedAudioUri && (
+          <View style={styles.audioPreviewRow}>
+            <TouchableOpacity style={styles.btnPlayAudio} onPress={toggleAudioPreview}>
+              <Ionicons name={playerStatus.playing ? "pause" : "play"} size={28} color="#FFF" />
+              <Text style={styles.btnPlayText}>{playerStatus.playing ? "Pause" : "Écouter"}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={deleteAudio}>
+              <Ionicons name="trash" size={26} color="#FF3B30" />
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+
+  
+      <TouchableOpacity 
+        style={[styles.btnSendHuge, (loading || !canPublish) ? styles.disabledBtn : null]} 
+        onPress={handlePublishProcess} 
+        disabled={loading || !canPublish}
+      >
+        {loading ? (
+          <ActivityIndicator size="large" color="#FFF" />
+        ) : (
+          <>
+            <MaterialIcons name={canPublish ? "payment" : "block"} size={32} color="#FFF" />
+            <Text style={styles.btnSendHugeText}>
+              {canPublish ? "ENVOYER" : "LIMITE ATTEINTE"}
+            </Text>
+          </>
+        )}
+      </TouchableOpacity>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { paddingBottom: 30, paddingHorizontal: 12, paddingTop: 20 },
+  limitContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E5F1FF', padding: 15, borderRadius: 12, marginBottom: 20, gap: 10 },
+  limitContainerError: { backgroundColor: '#FFE5E5' },
+  limitText: { color: '#007AFF', fontSize: 15, fontWeight: '600', flex: 1 },
+  limitTextError: { color: '#FF3B30' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 10, marginBottom: 20 },
+  bigButton: { width: '48%', aspectRatio: 1, borderRadius: 20, justifyContent: 'center', alignItems: 'center', elevation: 3, padding: 10 },
+  bigButtonText: { color: '#FFF', fontSize: 16, fontWeight: 'bold', marginTop: 10, textAlign: 'center' },
+  
+  previewSection: { marginBottom: 20, minHeight: 60 },
+  thumbnailWrapper: { marginRight: 15, position: 'relative' },
+  thumbnail: { width: 110, height: 110, borderRadius: 14 },
+  editBadge: { position: 'absolute', bottom: 6, right: 6, backgroundColor: '#007AFF', padding: 6, borderRadius: 12 },
+  removeBadge: { position: 'absolute', top: -8, right: -8, backgroundColor: '#FFF', borderRadius: 14 },
+
+  audioPreviewRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#E5E5EA', padding: 14, borderRadius: 16, marginTop: 12 },
+  btnPlayAudio: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#34C759', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12 },
+  btnPlayText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
+  
+  btnSendHuge: { flexDirection: 'row', backgroundColor: '#BF5AF2', padding: 18, borderRadius: 20, justifyContent: 'center', alignItems: 'center', gap: 12, elevation: 4 },
+  btnSendHugeText: { color: '#FFF', fontWeight: '900', fontSize: 22, letterSpacing: 1 },
+  disabledBtn: { opacity: 0.5 },
+
+  // Editor Modal Styles
+  editor: { flex: 1, backgroundColor: '#0B0B0C' },
+  editorHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 0.5, borderColor: '#2C2C2E' },
+  editorTitle: { color: '#FFF', fontSize: 17, fontWeight: '700' },
+  saveBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#34C759', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, gap: 4 },
+  saveTxt: { color: '#FFF', fontSize: 14, fontWeight: '700' },
+  previewZone: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' },
+  zoomBadge: { position: 'absolute', top: 12, backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', zIndex: 30 },
+  zoomTxt: { color: '#FFF', fontSize: 13, fontWeight: '600' },
+  imgBox: { position: 'relative', backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
+  clipLayer: { position: 'absolute', top: 0, left: 0, overflow: 'hidden' },
+  editorImg: { position: 'absolute' },
+  mask: { position: 'absolute', backgroundColor: 'rgba(0,0,0,0.65)', zIndex: 10 },
+  cropBox: { position: 'absolute', borderColor: 'rgba(255,255,255,0.9)', borderWidth: 1, zIndex: 20 },
+  gridH: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: 'rgba(255,255,255,0.3)' },
+  gridV: { position: 'absolute', top: 0, bottom: 0, width: 1, backgroundColor: 'rgba(255,255,255,0.3)' },
+  hint: { color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 14, textAlign: 'center', lineHeight: 18 },
+  toolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingVertical: 16, borderTopWidth: 0.5, borderColor: '#2C2C2E', backgroundColor: '#0B0B0C' },
+  tool: { alignItems: 'center', gap: 6, minWidth: 70 },
+  toolTxt: { color: '#8E8E93', fontSize: 12, fontWeight: '500' },
+});
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+// AdvertiserView.tsx
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import {
+  StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, Alert,
+  Image, ScrollView, SafeAreaView, Modal, Dimensions, PanResponder,
+} from 'react-native';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import { 
+  useAudioPlayer, 
+  useAudioPlayerStatus, 
+  useAudioRecorder, 
+  AudioModule, 
+  RecordingPresets, 
+  setAudioModeAsync 
+} from 'expo-audio';
+import { supabase } from '../lib/supabase';
+import * as FileSystem from 'expo-file-system/legacy';
+import { decode } from 'base64-arraybuffer';
+import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
+import { manipulateAsync, SaveFormat, FlipType } from 'expo-image-manipulator';
+
+const { width: SW, height: SH } = Dimensions.get('window');
+const CW = SW - 32, CH = SH * 0.58, MIN = 60, TOUCH = 56;
+type Rect = { left: number; top: number; width: number; height: number };
+
+export interface MediaItem {
+  uri: string;
+  type?: 'image' | string;
+}
+
+export default function AdvertiserView({ isDark = false }: { isDark?: boolean }) {
+  // --- ÉTATS ---
+  const [selectedMedia, setSelectedMedia] = useState<MediaItem[]>([]);
+  const [recordedAudioUri, setRecordedAudioUri] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
+  const [postsThisMonth, setPostsThisMonth] = useState(0); 
+  const MAX_POSTS_PER_MONTH = 5;
+  const canPublish = postsThisMonth < MAX_POSTS_PER_MONTH;
+
+  // --- CROP & EDIT STATE ---
+  const [editIdx, setEditIdx] = useState<number | null>(null);
+  const [editUri, setEditUri] = useState<string | null>(null);
+  const [imgSize, setImgSize] = useState({ width: 1, height: 1 });
+  const [dispSize, setDispSize] = useState({ width: CW, height: CH });
+  const [crop, setCrop] = useState<Rect>({ left: 0, top: 0, width: CW, height: CH });
+  const cropRef = useRef(crop), initRef = useRef(crop);
+  const [zoom, setZoom] = useState(1);
+  const zoomRef = useRef(1), pinchDist = useRef<number | null>(null), initScale = useRef(1);
+
+  useEffect(() => { cropRef.current = crop; }, [crop]);
+  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+
+  // --- CAMERA STATE (Intégrée - Photo Uniquement) ---
+  const [camOn, setCamOn] = useState(false);
+  const [facing, setFacing] = useState<CameraType>('back');
+  const camRef = useRef<CameraView>(null);
+  const [camPerm, reqCam] = useCameraPermissions();
+
+  // --- GESTION AUDIO ---
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const player = useAudioPlayer(recordedAudioUri ? { uri: recordedAudioUri } : { uri: '' });
+  const playerStatus = useAudioPlayerStatus(player);
+  useEffect(() => { if (recordedAudioUri && player) player.replace({ uri: recordedAudioUri }); }, [recordedAudioUri]);
+
+  // --- RÉCUPÉRATION DU NOMBRE DE POSTS DU MOIS DEPUIS SUPABASE ---
+  useEffect(() => {
+    const fetchMonthlyPostCount = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).toISOString();
+
+        const { count, error } = await supabase
+          .from('posts')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .gte('created_at', startOfMonth)
+          .lte('created_at', endOfMonth);
+
+        if (!error) {
+          setPostsThisMonth(count || 0);
+        }
+      } catch (err) {
+        console.log("Erreur récupération posts:", err);
+      }
+    };
+    fetchMonthlyPostCount();
+  }, []);
+
+  // --- PAN RESPONDER FACTORY (CROPPER) ---
+  const makeCornerPan = (corner: 'TL' | 'TR' | 'BL' | 'BR') =>
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => { initRef.current = { ...cropRef.current }; },
+      onPanResponderMove: (_, g) => {
+        const i = initRef.current;
+        let { left, top, width, height } = i;
+        if (corner === 'TL' || corner === 'BL') {
+          left = Math.max(0, Math.min(i.left + g.dx, i.left + i.width - MIN));
+          width = i.left + i.width - left;
+        } else {
+          width = Math.max(MIN, Math.min(i.width + g.dx, dispSize.width - i.left));
+        }
+        if (corner === 'TL' || corner === 'TR') {
+          top = Math.max(0, Math.min(i.top + g.dy, i.top + i.height - MIN));
+          height = i.top + i.height - top;
+        } else {
+          height = Math.max(MIN, Math.min(i.height + g.dy, dispSize.height - i.top));
+        }
+        setCrop({ left, top, width, height });
+      },
+    });
+
+  const panTL = useMemo(() => makeCornerPan('TL'), [dispSize]);
+  const panTR = useMemo(() => makeCornerPan('TR'), [dispSize]);
+  const panBL = useMemo(() => makeCornerPan('BL'), [dispSize]);
+  const panBR = useMemo(() => makeCornerPan('BR'), [dispSize]);
+
+  const panCenter = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (e) => (e.nativeEvent.touches?.length ?? 0) <= 2,
+    onPanResponderGrant: (e) => {
+      initRef.current = { ...cropRef.current };
+      const t = e.nativeEvent.touches || [];
+      if (t.length === 2) {
+        pinchDist.current = Math.hypot(t[0].pageX - t[1].pageX, t[0].pageY - t[1].pageY);
+        initScale.current = zoomRef.current;
+      }
+    },
+    onPanResponderMove: (e, g) => {
+      const t = e.nativeEvent.touches || [];
+      if (t.length === 2 && pinchDist.current) {
+        const d = Math.hypot(t[0].pageX - t[1].pageX, t[0].pageY - t[1].pageY);
+        setZoom(Math.min(3, Math.max(1, initScale.current * (d / pinchDist.current))));
+        return;
+      }
+      if (t.length === 1) {
+        const i = initRef.current;
+        setCrop({
+          ...i,
+          left: Math.max(0, Math.min(i.left + g.dx, dispSize.width - i.width)),
+          top: Math.max(0, Math.min(i.top + g.dy, dispSize.height - i.height)),
+        });
+      }
+    },
+    onPanResponderRelease: () => { pinchDist.current = null; },
+    onPanResponderTerminate: () => { pinchDist.current = null; },
+  }), [dispSize]);
+
+  // --- CROP ACTIONS ---
+  const openEditor = (idx: number) => {
+    const uri = selectedMedia[idx].uri;
+    Image.getSize(uri, (w, h) => {
+      if (!w || !h) return Alert.alert('Erreur', "Dimensions de l'image invalides.");
+      setImgSize({ width: w, height: h });
+      const r = w / h, cr = CW / CH;
+      const dW = r > cr ? CW : CH * r, dH = r > cr ? CW / r : CH;
+      setDispSize({ width: dW, height: dH });
+      setCrop({ left: 0, top: 0, width: dW, height: dH });
+      setZoom(1); zoomRef.current = 1;
+      setEditIdx(idx); setEditUri(uri);
+    }, () => Alert.alert('Erreur', "Impossible de charger l'image."));
+  };
+
+  const resetCrop = () => {
+    setCrop({ left: 0, top: 0, width: dispSize.width, height: dispSize.height });
+    setZoom(1); zoomRef.current = 1;
+  };
+
+  const rotate = async () => {
+    if (!editUri) return;
+    const r = await manipulateAsync(editUri, [{ rotate: 90 }], { compress: 0.8, format: SaveFormat.JPEG });
+    setEditUri(r.uri);
+    Image.getSize(r.uri, (w, h) => {
+      if (!w || !h) return;
+      setImgSize({ width: w, height: h });
+      const ratio = w / h, cr = CW / CH;
+      const dW = ratio > cr ? CW : CH * ratio, dH = ratio > cr ? CW / ratio : CH;
+      setDispSize({ width: dW, height: dH });
+      setCrop({ left: 0, top: 0, width: dW, height: dH });
+      setZoom(1); zoomRef.current = 1;
+    });
+  };
+
+  const flip = async () => {
+    if (!editUri) return;
+    const r = await manipulateAsync(editUri, [{ flip: FlipType.Horizontal }], { compress: 0.8, format: SaveFormat.JPEG });
+    setEditUri(r.uri);
+  };
+
+  const applyCrop = async () => {
+    if (!editUri || editIdx === null) return;
+    try {
+      const { width: cw, height: ch } = dispSize, s = zoom, cx = cw / 2, cy = ch / 2;
+      const ux1 = cx + (crop.left - cx) / s, uy1 = cy + (crop.top - cy) / s;
+      const ux2 = cx + (crop.left + crop.width - cx) / s, uy2 = cy + (crop.top + crop.height - cy) / s;
+      const sx = imgSize.width / cw, sy = imgSize.height / ch;
+      const originX = Math.max(0, Math.round(ux1 * sx));
+      const originY = Math.max(0, Math.round(uy1 * sy));
+      const w = Math.min(imgSize.width - originX, Math.round((ux2 - ux1) * sx));
+      const h = Math.min(imgSize.height - originY, Math.round((uy2 - uy1) * sy));
+      
+      if (w <= 1 || h <= 1) return Alert.alert('Erreur', 'Zone invalide.');
+      const r = await manipulateAsync(editUri, [{ crop: { originX, originY, width: w, height: h } }], { compress: 0.8, format: SaveFormat.JPEG });
+      setSelectedMedia(p => { const u = [...p]; u[editIdx] = { ...u[editIdx], uri: r.uri }; return u; });
+      closeEditor();
+    } catch { Alert.alert('Erreur', "Échec du rognage."); closeEditor(); }
+  };
+
+  const closeEditor = () => { setEditIdx(null); setEditUri(null); };
+
+  // --- CAMÉRA INTÉGRÉE (PHOTO) ---
+  const openCamera = async () => {
+    let cp = camPerm;
+    if (!cp?.granted) cp = await reqCam();
+    if (cp?.granted) {
+      setCamOn(true);
+    } else {
+      Alert.alert('Permission', 'Accès à la caméra refusé.');
+    }
+  };
+
+  const takePicture = async () => {
+    if (camRef.current) {
+      try {
+        const photo = await camRef.current.takePictureAsync({ quality: 0.8, skipProcessing: true });
+        if (photo) {
+          setCamOn(false);
+          setSelectedMedia(prev => [...prev, { uri: photo.uri, type: 'image' }]);
+        }
+      } catch (error) {
+        Alert.alert('Erreur', 'Impossible de prendre la photo.');
+      }
+    }
+  };
+
+  // --- SÉLECTION GALERIE (PHOTOS) ---
+  const pickMedia = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission', 'Accès à la galerie refusé.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'], 
+      allowsMultipleSelection: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      const newMedia = result.assets.map(asset => ({ uri: asset.uri, type: 'image' }));
+      setSelectedMedia(prev => [...prev, ...newMedia]);
+    }
+  };
+
+  const removeMedia = (index: number) => {
+    setSelectedMedia((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // --- SÉLECTION FICHIER AUDIO ---
+  const pickAudioFile = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ type: 'audio/*' });
+      if (!result.canceled && result.assets.length > 0) {
+        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+        setRecordedAudioUri(result.assets[0].uri);
+      }
+    } catch (err) {
+      console.log('Erreur sélection audio', err);
+    }
+  };
+
+  // --- ENREGISTREMENT VOCAL ---
+  const startRecording = async () => {
+    try {
+      const permission = await AudioModule.requestRecordingPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission', 'Accès au micro refusé.');
+        return;
+      }
+      
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      await recorder.prepareToRecordAsync();
+      await recorder.record();
+      setIsRecording(true);
+    } catch (err) {
+      console.error("Erreur enregistrement:", err);
+    }
+  };
+
+  const stopRecording = async () => {
+    try {
+      setIsRecording(false);
+      await recorder.stop();
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+      
+      const uri = recorder.uri;
+      if (uri) {
+        setRecordedAudioUri(uri);
+        player?.replace({ uri });
+      }
+    } catch (err) {
+      console.error('Erreur arrêt enregistrement', err);
+    }
+  };
+
+  // --- LECTURE VOCAL ---
+  const toggleAudioPreview = async () => {
+    if (!player) return;
+    await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+    
+    if (playerStatus.playing) {
+      player.pause();
+    } else {
+      player.seekTo(0);
+      player.play();
+    }
+  };
+
+  const deleteAudio = () => {
+    if (player && playerStatus.playing) {
+      player.pause();
+    }
+    setRecordedAudioUri(null);
+  };
+
+  // --- UPLOAD SUPABASE ---
+  const uploadFileToSupabase = async (uri: string, folder: string): Promise<string> => {
+    const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+    const arrayBuffer = decode(base64);
+    const fileExt = uri.split('.').pop()?.split('?')[0] || 'bin';
+    
+    let mimeType = folder === 'medias' ? 'image/jpeg' : 'audio/m4a'; 
+    const fileName = `${folder}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+    const { error } = await supabase.storage
+      .from('ganbanaaxu-media') 
+      .upload(fileName, arrayBuffer, { contentType: mimeType, upsert: false });
+    
+    if (error) throw new Error(`Erreur Storage: ${error.message}`);
+    
+    const { data } = supabase.storage.from('ganbanaaxu-media').getPublicUrl(fileName);
+    return data.publicUrl;
+  };
+
+  // --- PROCESSUS DE PUBLICATION ---
+  const handlePublishProcess = async () => {
+    if (selectedMedia.length === 0 && !recordedAudioUri) {
+      Alert.alert("Rien à envoyer", "Ajoutez une photo ou un vocal.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Vous devez être connecté.");
+
+      const uploadedMediaUrls = await Promise.all(selectedMedia.map(item => uploadFileToSupabase(item.uri, 'medias')));
+      let uploadedAudioUrl = recordedAudioUri ? await uploadFileToSupabase(recordedAudioUri, 'audios') : null;
+
+      const { error } = await supabase.from('posts').insert([
+        {
+          user_id: user.id,
+          media_urls: uploadedMediaUrls,
+          audio_url: uploadedAudioUrl,
+          caption: "Annonce sponsorisée", 
+        }
+      ]);
+
+      if (error) throw error;
+
+      Alert.alert("Succès !", "Votre annonce a été envoyée avec succès.");
+      
+      setSelectedMedia([]);
+      deleteAudio();
+      setPostsThisMonth(prev => prev + 1);
+
+    } catch (error: any) {
+      Alert.alert("Erreur de publication", error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Styles utilitaires pour le crop
+  const cornerStyle = (c: 'TL' | 'TR' | 'BL' | 'BR') => {
+    const base = { position: 'absolute', width: TOUCH, height: TOUCH, justifyContent: 'center', alignItems: 'center', zIndex: 25 } as const;
+    const pos = {
+      TL: { top: -TOUCH / 2, left: -TOUCH / 2 },
+      TR: { top: -TOUCH / 2, right: -TOUCH / 2 },
+      BL: { bottom: -TOUCH / 2, left: -TOUCH / 2 },
+      BR: { bottom: -TOUCH / 2, right: -TOUCH / 2 },
+    }[c];
+    return [base, pos];
+  };
+
+  const shapeStyle = (c: 'TL' | 'TR' | 'BL' | 'BR') => ({
+    width: 24, height: 24, borderColor: '#FFF',
+    ...(c === 'TL' ? { borderTopWidth: 3, borderLeftWidth: 3 } : {}),
+    ...(c === 'TR' ? { borderTopWidth: 3, borderRightWidth: 3 } : {}),
+    ...(c === 'BL' ? { borderBottomWidth: 3, borderLeftWidth: 3 } : {}),
+    ...(c === 'BR' ? { borderBottomWidth: 3, borderRightWidth: 3 } : {}),
+  });
+
+  return (
+    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      
+      {/* ══ CAMÉRA INTÉGRÉE (PHOTO) ══ */}
+      <Modal visible={camOn} animationType="slide" presentationStyle="fullScreen" onRequestClose={() => setCamOn(false)}>
+        <SafeAreaView style={styles.camContainer}>
+          <View style={{ flex: 1, position: 'relative' }}>
+            <CameraView ref={camRef} style={{ flex: 1 }} facing={facing} mode="picture" />
+            <View style={styles.camOverlay}>
+              <View style={styles.camTop}>
+                <TouchableOpacity onPress={() => setCamOn(false)} style={styles.iconBtn}>
+                  <Ionicons name="close" size={32} color="#FFF" />
+                </TouchableOpacity>
+                <Text style={styles.camTitle}>Prendre une photo</Text>
+                <View style={{ width: 32 }} />
+              </View>
+              <View style={styles.camBottom}>
+                <View style={{ width: 50 }} />
+                <TouchableOpacity style={styles.shutter} onPress={takePicture} />
+                <TouchableOpacity onPress={() => setFacing(p => p === 'back' ? 'front' : 'back')} style={styles.iconBtn}>
+                  <Ionicons name="camera-reverse" size={32} color="#FFF" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* ══ CROP EDITOR MODAL ══ */}
+      <Modal visible={editIdx !== null} animationType="fade" onRequestClose={closeEditor}>
+        <SafeAreaView style={styles.editor}>
+          <View style={styles.editorHead}>
+            <TouchableOpacity onPress={closeEditor}><Ionicons name="close" size={26} color="#FFF" /></TouchableOpacity>
+            <Text style={styles.editorTitle}>Recadrer l'annonce</Text>
+            <TouchableOpacity onPress={applyCrop} style={styles.saveBtn}>
+              <Ionicons name="checkmark" size={20} color="#FFF" />
+              <Text style={styles.saveTxt}>Appliquer</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.previewZone}>
+            <View style={styles.zoomBadge}><Text style={styles.zoomTxt}>{zoom.toFixed(1)}x</Text></View>
+
+            <View style={[styles.imgBox, { width: dispSize.width, height: dispSize.height }]}>
+              <View style={[styles.clipLayer, { width: dispSize.width, height: dispSize.height }]}>
+                {editUri && (
+                  <Image 
+                    key={editUri} 
+                    source={{ uri: editUri }} 
+                    style={[styles.editorImg, { width: dispSize.width, height: dispSize.height, transform: [{ scale: zoom }] }]} 
+                    resizeMode="contain" 
+                  />
+                )}
+                
+                <View style={[styles.mask, { top: 0, left: 0, width: dispSize.width, height: crop.top }]} pointerEvents="none" />
+                <View style={[styles.mask, { top: crop.top + crop.height, left: 0, width: dispSize.width, height: dispSize.height - (crop.top + crop.height) }]} pointerEvents="none" />
+                <View style={[styles.mask, { top: crop.top, left: 0, width: crop.left, height: crop.height }]} pointerEvents="none" />
+                <View style={[styles.mask, { top: crop.top, left: crop.left + crop.width, width: dispSize.width - (crop.left + crop.width), height: crop.height }]} pointerEvents="none" />
+              </View>
+
+              <View style={[styles.cropBox, { left: crop.left, top: crop.top, width: crop.width, height: crop.height }]} pointerEvents="box-none">
+                <View style={{ flex: 1 }} {...panCenter.panHandlers}>
+                  <View style={[styles.gridH, { top: '33.33%' }]} pointerEvents="none" />
+                  <View style={[styles.gridH, { top: '66.66%' }]} pointerEvents="none" />
+                  <View style={[styles.gridV, { left: '33.33%' }]} pointerEvents="none" />
+                  <View style={[styles.gridV, { left: '66.66%' }]} pointerEvents="none" />
+                </View>
+                {(['TL', 'TR', 'BL', 'BR'] as const).map(c => (
+                  <View key={c} style={cornerStyle(c)} hitSlop={{ top: 10, left: 10, right: 10, bottom: 10 }} {...({ TL: panTL, TR: panTR, BL: panBL, BR: panBR }[c]).panHandlers}>
+                    <View style={shapeStyle(c)} pointerEvents="none" />
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            <Text style={styles.hint}>• Glissez les coins pour rogner{'\n'}• Centre pour déplacer | 2 doigts pour zoomer</Text>
+          </View>
+
+          <View style={styles.toolbar}>
+            {[
+              { icon: 'scan-outline', label: 'Reset', fn: resetCrop },
+              { icon: 'refresh-outline', label: 'Pivoter', fn: rotate },
+              { icon: 'swap-horizontal-outline', label: 'Miroir', fn: flip },
+            ].map(t => (
+              <TouchableOpacity key={t.label} onPress={t.fn} style={styles.tool}>
+                <Ionicons name={t.icon as any} size={22} color="#FFF" />
+                <Text style={styles.toolTxt}>{t.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* BANNIÈRE DE LIMITE */}
+      <View style={[styles.limitContainer, !canPublish && styles.limitContainerError]}>
+        <Ionicons name={canPublish ? "information-circle" : "warning"} size={24} color={canPublish ? "#007AFF" : "#FF3B30"} />
+        <Text style={[styles.limitText, !canPublish && styles.limitTextError]}>
+          Annonces publiées ce mois-ci : {postsThisMonth} / {MAX_POSTS_PER_MONTH}
+          {!canPublish && "\nVous avez atteint votre limite mensuelle."}
+        </Text>
+      </View>
+
+      {/* BOUTONS */}
+      <View style={styles.grid}>
+        <TouchableOpacity style={[styles.bigButton, { backgroundColor: '#FF9500' }]} onPress={openCamera} disabled={loading || !canPublish}>
+          <Ionicons name="camera" size={40} color="#FFF" />
+          <Text style={styles.bigButtonText}>Photo</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={[styles.bigButton, { backgroundColor: '#007AFF' }]} onPress={pickMedia} disabled={loading || !canPublish}>
+          <Ionicons name="images" size={40} color="#FFF" />
+          <Text style={styles.bigButtonText}>Galerie</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.bigButton, isRecording ? { backgroundColor: '#000' } : { backgroundColor: '#FF3B30' }]} 
+          onPress={isRecording ? stopRecording : startRecording} 
+          disabled={loading || !canPublish}
+        >
+          <Ionicons name={isRecording ? "stop-circle" : "mic"} size={40} color="#FFF" />
+          <Text style={styles.bigButtonText}>{isRecording ? "Arrêter" : "Parler"}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={[styles.bigButton, { backgroundColor: '#AF52DE' }]} onPress={pickAudioFile} disabled={loading || !canPublish}>
+          <Ionicons name="musical-notes" size={40} color="#FFF" />
+          <Text style={styles.bigButtonText}>Audio</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* ZONE DE VISUALISATION */}
+      <View style={styles.previewSection}>
+        {selectedMedia.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingVertical: 5 }}>
+            {selectedMedia.map((item, index) => (
+              <View key={index} style={styles.thumbnailWrapper}>
+                <Image source={{ uri: item.uri }} style={styles.thumbnail} />
+                <TouchableOpacity style={styles.editBadge} onPress={() => openEditor(index)}>
+                  <Ionicons name="pencil" size={16} color="#FFF" />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.removeBadge} onPress={() => removeMedia(index)}>
+                  <Ionicons name="close-circle" size={26} color="#FF3B30" />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </ScrollView>
+        )}
+
+        {recordedAudioUri && (
+          <View style={styles.audioPreviewRow}>
+            <TouchableOpacity style={styles.btnPlayAudio} onPress={toggleAudioPreview}>
+              <Ionicons name={playerStatus.playing ? "pause" : "play"} size={28} color="#FFF" />
+              <Text style={styles.btnPlayText}>{playerStatus.playing ? "Pause" : "Écouter"}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={deleteAudio}>
+              <Ionicons name="trash" size={26} color="#FF3B30" />
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+
+      {/* BOUTON ENVOYER */}
+      <TouchableOpacity 
+        style={[styles.btnSendHuge, (loading || !canPublish) ? styles.disabledBtn : null]} 
+        onPress={handlePublishProcess} 
+        disabled={loading || !canPublish}
+      >
+        {loading ? (
+          <ActivityIndicator size="large" color="#FFF" />
+        ) : (
+          <>
+            <MaterialIcons name={canPublish ? "payment" : "block"} size={32} color="#FFF" />
+            <Text style={styles.btnSendHugeText}>
+              {canPublish ? "ENVOYER" : "LIMITE ATTEINTE"}
+            </Text>
+          </>
+        )}
+      </TouchableOpacity>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { paddingBottom: 30, paddingHorizontal: 12, paddingTop: 20 },
+  limitContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E5F1FF', padding: 15, borderRadius: 12, marginBottom: 20, gap: 10 },
+  limitContainerError: { backgroundColor: '#FFE5E5' },
+  limitText: { color: '#007AFF', fontSize: 15, fontWeight: '600', flex: 1 },
+  limitTextError: { color: '#FF3B30' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 10, marginBottom: 20 },
+  bigButton: { width: '48%', aspectRatio: 1, borderRadius: 20, justifyContent: 'center', alignItems: 'center', elevation: 3, padding: 10 },
+  bigButtonText: { color: '#FFF', fontSize: 16, fontWeight: 'bold', marginTop: 10, textAlign: 'center' },
+  
+  previewSection: { marginBottom: 20, minHeight: 60 },
+  thumbnailWrapper: { marginRight: 15, position: 'relative' },
+  thumbnail: { width: 110, height: 110, borderRadius: 14 },
+  editBadge: { position: 'absolute', bottom: 6, right: 6, backgroundColor: '#007AFF', padding: 6, borderRadius: 12 },
+  removeBadge: { position: 'absolute', top: -8, right: -8, backgroundColor: '#FFF', borderRadius: 14 },
+
+  audioPreviewRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#E5E5EA', padding: 14, borderRadius: 16, marginTop: 12 },
+  btnPlayAudio: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#34C759', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12 },
+  btnPlayText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
+  
+  btnSendHuge: { flexDirection: 'row', backgroundColor: '#BF5AF2', padding: 18, borderRadius: 20, justifyContent: 'center', alignItems: 'center', gap: 12, elevation: 4 },
+  btnSendHugeText: { color: '#FFF', fontWeight: '900', fontSize: 22, letterSpacing: 1 },
+  disabledBtn: { opacity: 0.5 },
+
+  // Camera Styles
+  camContainer: { flex: 1, backgroundColor: '#000' },
+  camOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'space-between', zIndex: 10, padding: 20 },
+  camTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 30 },
+  camTitle: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
+  camBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 30 },
+  iconBtn: { padding: 10, backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 30 },
+  shutter: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#FFF', borderWidth: 5, borderColor: 'rgba(255,255,255,0.5)' },
+
+  // Editor Modal Styles
+  editor: { flex: 1, backgroundColor: '#0B0B0C' },
+  editorHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 0.5, borderColor: '#2C2C2E' },
+  editorTitle: { color: '#FFF', fontSize: 17, fontWeight: '700' },
+  saveBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#34C759', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, gap: 4 },
+  saveTxt: { color: '#FFF', fontSize: 14, fontWeight: '700' },
+  previewZone: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' },
+  zoomBadge: { position: 'absolute', top: 12, backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', zIndex: 30 },
+  zoomTxt: { color: '#FFF', fontSize: 13, fontWeight: '600' },
+  imgBox: { position: 'relative', backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
+  clipLayer: { position: 'absolute', top: 0, left: 0, overflow: 'hidden' },
+  editorImg: { position: 'absolute' },
+  mask: { position: 'absolute', backgroundColor: 'rgba(0,0,0,0.65)', zIndex: 10 },
+  cropBox: { position: 'absolute', borderColor: 'rgba(255,255,255,0.9)', borderWidth: 1, zIndex: 20 },
+  gridH: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: 'rgba(255,255,255,0.3)' },
+  gridV: { position: 'absolute', top: 0, bottom: 0, width: 1, backgroundColor: 'rgba(255,255,255,0.3)' },
+  hint: { color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 14, textAlign: 'center', lineHeight: 18 },
+  toolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingVertical: 16, borderTopWidth: 0.5, borderColor: '#2C2C2E', backgroundColor: '#0B0B0C' },
+  tool: { alignItems: 'center', gap: 6, minWidth: 70 },
+  toolTxt: { color: '#8E8E93', fontSize: 12, fontWeight: '500' },
+});
+
+
+
+
+
+
+
+
+
+
+
+
