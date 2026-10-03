@@ -2033,13 +2033,18 @@ const { width, height } = Dimensions.get('window');
 // ═══════════════════════════════════════════════════════════════
 // CONFIG & TYPES
 // ═══════════════════════════════════════════════════════════════
+
 const TOP_NATIVE_AD_ID = TestIds.NATIVE;
 const INLINE_NATIVE_AD_ID = TestIds.NATIVE;
+
+
+
 const CACHE_KEY = 'ganbanaaxu_feed_cache';
 const SEEN_KEY = 'ganbanaaxu_seen_posts';
 const CACHE_TTL = 5 * 60 * 1000;
 const PAGE_SIZE = 10;
 const SEEN_MAX = 500;
+
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
