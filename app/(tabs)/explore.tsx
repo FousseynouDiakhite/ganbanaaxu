@@ -2555,7 +2555,7 @@ const EventsScreen: React.FC<ScreenProps> = ({ onGoBack, theme }) => {
 
             <TextInput
               style={[styles.input, { color: theme.text, borderColor: theme.border }]}
-              placeholder="Lieu (ex: Dakar / En ligne)"
+              placeholder="Lieu (ex: Paris / En ligne)"
               placeholderTextColor={theme.textSecondary}
               value={locationInput}
               onChangeText={setLocationInput}
