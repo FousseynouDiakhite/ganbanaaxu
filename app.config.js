@@ -833,7 +833,13 @@ allprojects {
 
 
 
+/*
 
+google play console app signing SHA-1 fingerprint
+
+35:AF:B5:C2:03:B6:7F:F1:86:50:8A:4B:75:B1:B9:2E:72:EE:C8:67
+
+*/
 
 
 /*
