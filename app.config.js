@@ -706,6 +706,8 @@ export default {
       googleServicesFile: "./google-services.json",
       versionCode: 69,
       usesCleartextTraffic: true,
+      useNextNotificationsApi: true,
+      multidexEnabled: true,
       adaptiveIcon: {
         foregroundImage: "./assets/images/logoLiberty.png",
         backgroundColor: "#000000",
